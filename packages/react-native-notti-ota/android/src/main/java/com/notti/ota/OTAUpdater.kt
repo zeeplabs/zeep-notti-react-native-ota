@@ -173,7 +173,8 @@ internal class OTAUpdater(
   private val embeddedHermesVersion: () -> Int?,
   private val executor: Executor = Executors.newSingleThreadExecutor(),
   private val clock: () -> Long = System::currentTimeMillis,
-  private val freeSpace: (File) -> Long = { it.usableSpace }
+  private val freeSpace: (File) -> Long = { it.usableSpace },
+  private val onPending: (ReleasePointer) -> Unit = {}
 ) {
   private var checkedThisProcess = false
 
@@ -245,15 +246,17 @@ internal class OTAUpdater(
       store.releasesDir.mkdirs()
       if (!extracted.renameTo(target)) throw IOException("could not promote the release")
 
+      val pointer = ReleasePointer(id, manifest.bundle, update.mandatory)
       val next = store.update {
         it.copy(
-          pending = ReleasePointer(id, manifest.bundle, update.mandatory),
+          pending = pointer,
           attempt = null, failedCount = 0, interruptedCount = 0, lastFailureReason = null, revertToEmbedded = false
         )
       }
       store.pruneReleases(setOfNotNull(next.stable?.releaseId, next.pending?.releaseId))
       events.add(OTAEvent.create(OTAEvent.DOWNLOADED, id, now = clock()))
       Log.i(TAG, "Live updates: release $id downloaded, it loads on the next cold start")
+      onPending(pointer)
     } catch (e: OTADownloadException) {
       Log.w(TAG, "Live updates: download of $id failed (${e.reason})")
       events.add(OTAEvent.create(OTAEvent.DOWNLOAD_FAILED, id, e.reason, clock()))

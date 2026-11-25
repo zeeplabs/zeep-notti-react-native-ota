@@ -412,6 +412,33 @@ class NottiOtaEntryTest {
   }
 
   @Test
+  fun theCurrentReleaseIsTheSelectedOneOnceTheHostAskedForIt() {
+    configure(validMetaData())
+    val store = OTAStateStore(File(context.filesDir, "notti-ota"))
+    val releaseId = "1e2d3c4b-5a69-4788-9a0b-1c2d3e4f5a6b"
+    val state = store.open(BinaryIdentity.of(context)).copy(stable = ReleasePointer(releaseId, "index.android.bundle"))
+    File(store.releaseDir(releaseId), "index.android.bundle").apply { parentFile!!.mkdirs(); writeText("x") }
+    store.save(state)
+
+    NottiOta.prepare(context)
+    assertNull(NottiOta.currentReleaseId())
+    NottiOta.getJSBundleFile(context)
+    assertEquals(releaseId, NottiOta.currentReleaseId())
+  }
+
+  @Test
+  fun aReadyReleaseReachesTheListenerAndAFailingListenerNeverThrows() {
+    val received = mutableListOf<ReleasePointer>()
+    val pointer = ReleasePointer("1e2d3c4b-5a69-4788-9a0b-1c2d3e4f5a6b", "index.android.bundle", mandatory = true)
+    NottiOta.releaseReady(pointer)
+    NottiOta.updateReadyListener = { received += it }
+    NottiOta.releaseReady(pointer)
+    assertEquals(listOf(pointer), received)
+    NottiOta.updateReadyListener = { throw IllegalStateException("bridge gone") }
+    NottiOta.releaseReady(pointer)
+  }
+
+  @Test
   fun aCorruptStateNeverThrowsAndBootsEmbedded() {
     configure(validMetaData())
     File(context.filesDir, "notti-ota").mkdirs()

@@ -89,6 +89,26 @@ override val reactHost: ReactHost by lazy {
 
 When the configuration is present but the app never asks the SDK for its bundle, the SDK logs an error at startup and reports `integration_missing` once per binary. When another bundle is loaded instead of the selected one, it reports `bundle_overridden` and turns Live updates off for that session. Both show in the Notti dashboard.
 
+## JavaScript API
+
+Optional. The native layer works without it.
+
+```ts
+import { addUpdateReadyListener, getCurrentRelease } from 'react-native-notti-ota';
+
+const { releaseId, isEmbedded } = await getCurrentRelease();
+
+const subscription = addUpdateReadyListener(({ releaseId, mandatory }) => {
+  if (mandatory) {
+    // Ask the user to restart the app; the SDK never restarts it.
+  }
+});
+subscription.remove();
+```
+
+- `getCurrentRelease()` resolves to the Live update this session runs, or `{ releaseId: null, isEmbedded: true }` for the embedded bundle.
+- `addUpdateReadyListener` fires when an update has been downloaded and verified; it loads on the next cold start. Subscribe early (for example in your root component) so the listener is in place when the download finishes.
+
 ## Xcode 27 and the scene life cycle
 
 Apps built with Xcode 27 (iOS 27 SDK) must adopt the `UIScene` life cycle, or UIKit stops them at launch, before React Native starts. React Native 0.88+ and Expo SDK 56+ templates already use a `SceneDelegate`. If your app was created from an older template (React Native 0.83 to 0.87, Expo SDK 55), adopt `UIScene` before building with Xcode 27, or move to a newer template.

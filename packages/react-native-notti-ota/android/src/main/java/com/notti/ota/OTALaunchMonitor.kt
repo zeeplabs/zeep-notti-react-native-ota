@@ -283,6 +283,9 @@ object NottiOta {
   @Volatile internal var session: Session? = null
     private set
 
+  /** Set by the TurboModule while JS can receive `otaUpdateReady`. */
+  @Volatile internal var updateReadyListener: ((ReleasePointer) -> Unit)? = null
+
   internal class Session(
     val config: OTAConfig,
     val store: OTAStateStore,
@@ -309,6 +312,21 @@ object NottiOta {
       null
     }
 
+  /** The Live update this session runs: selected, asked for by the host and not overridden. */
+  internal fun currentReleaseId(): String? {
+    val current = session ?: return null
+    if (!current.monitor.bundleRequested || current.monitor.disabled) return null
+    return current.decision.selected?.releaseId
+  }
+
+  internal fun releaseReady(pointer: ReleasePointer) {
+    try {
+      updateReadyListener?.invoke(pointer)
+    } catch (t: Throwable) {
+      Log.e(TAG, "Live updates: could not notify JS of a ready release (${t.javaClass.simpleName})")
+    }
+  }
+
   @Synchronized
   internal fun prepare(
     context: Context,
@@ -325,7 +343,10 @@ object NottiOta {
     val decision = OTABoot.decide(opened, store, exits, now)
     if (decision.state != opened) store.save(decision.state)
     decision.events.forEach(events::add)
-    val updater = OTAUpdater(config, store, events, OTAApiClient(config), OTAUpdater.embeddedHermesVersion(context))
+    val updater = OTAUpdater(
+      config, store, events, OTAApiClient(config), OTAUpdater.embeddedHermesVersion(context),
+      onPending = ::releaseReady
+    )
     val monitor = OTALaunchMonitor(
       store, events, decision, scheduler,
       loadedSource = { (context as? ReactApplication)?.reactHost?.currentReactContext?.sourceURL },
@@ -338,6 +359,7 @@ object NottiOta {
     synchronized(this) {
       prepared = false
       session = null
+      updateReadyListener = null
     }
   }
 }

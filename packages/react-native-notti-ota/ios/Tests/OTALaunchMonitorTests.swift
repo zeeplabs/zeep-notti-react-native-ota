@@ -448,6 +448,32 @@ final class NottiOTAEntryTests: TempDirTestCase {
     XCTAssertTrue(exists(kept))
   }
 
+  func testTheCurrentReleaseIsTheSelectedOneOnceTheHostAskedForIt() throws {
+    let store = OTAStateStore(root: root)
+    var state = try store.open(binaryIdentity: "1|1.0|uuid")
+    state.stable = ReleasePointer(releaseId: releaseId, bundle: "main.jsbundle")
+    try store.save(state)
+    write("x", to: store.bundleFile(state.stable!))
+
+    prepare()
+    XCTAssertNil(NottiOTA.currentReleaseId())
+    _ = NottiOTA.selectBundle()
+    XCTAssertEqual(NottiOTA.currentReleaseId(), releaseId)
+    NottiOTA.session!.monitor.onHostLoadedBundle(URL(fileURLWithPath: "/elsewhere/main.jsbundle"))
+    NottiOTA.session!.monitor.onContentAppeared()
+    XCTAssertNil(NottiOTA.currentReleaseId(), "an overridden session does not run the release")
+  }
+
+  func testAReadyReleaseReachesTheHandler() {
+    var received: [(String, Bool)] = []
+    let pointer = ReleasePointer(releaseId: releaseId, bundle: "main.jsbundle", mandatory: true)
+    NottiOTA.releaseReady(pointer)
+    NottiOTA.setUpdateReadyHandler { received.append(($0, $1)) }
+    NottiOTA.releaseReady(pointer)
+    XCTAssertEqual(received.map(\.0), [releaseId])
+    XCTAssertEqual(received.map(\.1), [true])
+  }
+
   func testTheBundleURLIsNilInDebugBuilds() {
     prepare()
     XCTAssertNil(NottiOTA.bundleURL())

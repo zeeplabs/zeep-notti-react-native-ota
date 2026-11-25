@@ -9,7 +9,7 @@
 
 // Declared here rather than in a header: the codegen spec is C++, and a public header importing it
 // would make the pod's Swift module unimportable (the Expo adapter and the tests import it).
-@interface NottiOta : NSObject <NativeNottiOtaSpec>
+@interface NottiOta : NativeNottiOtaSpecBase <NativeNottiOtaSpec>
 @end
 
 // Runs at image load, before UIApplicationMain: the launch hooks must see the first activation.
@@ -30,9 +30,20 @@ RCT_EXPORT_MODULE()
   [NottiOTA hostLoadedBundle:bundleManager.bundleURL];
 }
 
+// Registered once the emitter can reach JS; the weak reference makes a stale module a no-op.
+- (void)setEventEmitterCallback:(EventEmitterCallbackWrapper *)eventEmitterCallbackWrapper
+{
+  [super setEventEmitterCallback:eventEmitterCallbackWrapper];
+  __weak NottiOta *weakSelf = self;
+  [NottiOTA setUpdateReadyHandler:^(NSString *releaseId, BOOL mandatory) {
+    [weakSelf emitOtaUpdateReady:@{@"releaseId" : releaseId, @"mandatory" : @(mandatory)}];
+  }];
+}
+
 - (void)getCurrentRelease:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
 {
-  resolve(@{@"releaseId" : [NSNull null], @"isEmbedded" : @YES});
+  NSString *releaseId = [NottiOTA currentReleaseId];
+  resolve(@{@"releaseId" : releaseId ?: [NSNull null], @"isEmbedded" : @(releaseId == nil)});
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

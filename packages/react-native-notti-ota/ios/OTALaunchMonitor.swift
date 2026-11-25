@@ -416,6 +416,7 @@ public final class NottiOTA: NSObject {
   private static let lock = NSRecursiveLock()
   private static var prepared = false
   private static var current: Session?
+  private static var updateReadyHandler: ((String, Bool) -> Void)?
 
   static var session: Session? {
     lock.lock()
@@ -467,6 +468,26 @@ public final class NottiOTA: NSObject {
     session?.monitor.onHostLoadedBundle(url)
   }
 
+  /// The Live update this session runs: selected, asked for by the host and not overridden.
+  @objc public static func currentReleaseId() -> String? {
+    guard let session, session.monitor.bundleRequested, !session.monitor.disabled else { return nil }
+    return session.decision.selected?.releaseId
+  }
+
+  /// Set by the TurboModule while JS can receive `otaUpdateReady`.
+  @objc public static func setUpdateReadyHandler(_ handler: ((String, Bool) -> Void)?) {
+    lock.lock()
+    defer { lock.unlock() }
+    updateReadyHandler = handler
+  }
+
+  static func releaseReady(_ pointer: ReleasePointer) {
+    lock.lock()
+    let handler = updateReadyHandler
+    lock.unlock()
+    handler?(pointer.releaseId, pointer.mandatory)
+  }
+
   @discardableResult
   static func prepare(
     config readConfig: () -> OTAConfig? = { OTAConfig.read() },
@@ -488,7 +509,7 @@ public final class NottiOTA: NSObject {
       decision.events.forEach(events.add)
       let updater = OTAUpdater(
         config: config, store: store, events: events, api: OTAApiClient(config: config),
-        embeddedHermesVersion: OTAUpdater.embeddedHermesVersion()
+        embeddedHermesVersion: OTAUpdater.embeddedHermesVersion(), onPending: releaseReady
       )
       let monitor = OTALaunchMonitor(
         store: store, events: events, decision: decision, scheduler: scheduler, readyToCheck: updater.onReady
@@ -506,5 +527,6 @@ public final class NottiOTA: NSObject {
     defer { lock.unlock() }
     prepared = false
     current = nil
+    updateReadyHandler = nil
   }
 }

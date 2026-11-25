@@ -43,6 +43,7 @@ class OTAUpdaterTest {
   private lateinit var events: OTAEventQueue
   private var now = 10_000_000L
   private var freeSpace = Long.MAX_VALUE
+  private val pendingNotices = mutableListOf<ReleasePointer>()
 
   @Before
   fun setUp() {
@@ -76,7 +77,7 @@ class OTAUpdaterTest {
 
   private fun updater(readTimeoutMs: Int = 15_000) = OTAUpdater(
     config, store, events, OTAApiClient(config, readTimeoutMs = readTimeoutMs), { 96 },
-    executor = { it.run() }, clock = { now }, freeSpace = { freeSpace }
+    executor = { it.run() }, clock = { now }, freeSpace = { freeSpace }, onPending = { pendingNotices += it }
   )
 
   private fun offer(id: String = releaseId, mandatory: Boolean = false) = {
@@ -114,6 +115,7 @@ class OTAUpdaterTest {
     assertEquals(now, state.lastCheckAt)
     assertEquals(listOf("downloaded:"), eventTypes())
     assertTrue(tmpIsEmpty())
+    assertEquals(listOf(state.pending), pendingNotices)
 
     val check = requests.first { it.path!!.endsWith("/ota/check") }
     assertEquals("/v1/apps/${manifest.appId}/ota/check", check.path)
@@ -146,6 +148,14 @@ class OTAUpdaterTest {
     updater().check()
     assertEquals(before.copy(lastCheckAt = now), store.load())
     assertTrue(events.read().isEmpty())
+  }
+
+  @Test
+  fun aFailedDownloadIsNotAnnounced() {
+    checkResponse = offer()
+    archiveResponse = { MockResponse().setResponseCode(403) }
+    updater().check()
+    assertTrue(pendingNotices.isEmpty())
   }
 
   @Test
