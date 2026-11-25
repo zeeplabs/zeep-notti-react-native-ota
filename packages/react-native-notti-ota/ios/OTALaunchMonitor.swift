@@ -57,11 +57,13 @@ struct BootDecision {
 
 /// The native boot decision, before any JS runs (spec OTA-24 to OTA-28).
 enum OTABoot {
-  /// iOS has no process exit reasons: a launch attempt left over at start (the process died in the
-  /// foreground, before backgrounding could record an interruption) counts as one failed launch.
+  /// iOS has no process exit reasons: a launch attempt left over at start is a failed launch only when
+  /// a crash handler wrote the crash marker; otherwise the user or the OS ended it (interrupted).
   static func decide(_ initial: OTAState, store: OTAStateStore, now: Int64) -> BootDecision {
     var events: [OTAEvent] = []
     var state = initial
+    let crashed = store.crashMarked()
+    store.clearCrashMarker()
 
     if state.revertToEmbedded {
       events.append(.create(OTAEvent.revertedToEmbedded, releaseId: state.stable?.releaseId, reason: "server", now: now))
@@ -77,8 +79,10 @@ enum OTABoot {
     if let attempt = state.attempt {
       if attempt.releaseId != state.pending?.releaseId {
         state.attempt = nil
-      } else {
+      } else if crashed {
         state = OTARollback.failed(state, reason: OTARollback.crash, events: &events, now: now)
+      } else {
+        state = OTARollback.interrupted(state, events: &events, now: now)
       }
     }
 
@@ -95,6 +99,33 @@ enum OTABoot {
   private static func isFile(_ url: URL) -> Bool {
     var isDirectory: ObjCBool = false
     return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory) && !isDirectory.boolValue
+  }
+}
+
+/// Arms the process-wide crash handlers for one launch attempt: a crash while armed writes
+/// `crash.marker` from the handler itself, so the next boot can tell a crash from a kill.
+final class OTACrashMarker {
+  private let store: OTAStateStore
+
+  init(store: OTAStateStore) {
+    self.store = store
+  }
+
+  func arm() {
+    do {
+      try store.ensureRoot()
+    } catch {
+      return
+    }
+    NottiOtaCrashMarkerInstall()
+    if !NottiOtaCrashMarkerArm(store.crashMarkerFile.path) {
+      otaLog.error("Live updates: could not arm the crash marker; a crash in this launch counts as interrupted")
+    }
+  }
+
+  func disarm() {
+    NottiOtaCrashMarkerDisarm()
+    store.clearCrashMarker()
   }
 }
 
@@ -123,6 +154,7 @@ final class OTALaunchMonitor {
   private let events: OTAEventQueue
   private let decision: BootDecision
   private let scheduler: OTAScheduler
+  private let crashMarker: OTACrashMarker?
   private let clock: () -> Int64
   private let readyToCheck: () -> Void
   private let lock = NSRecursiveLock()
@@ -137,12 +169,14 @@ final class OTALaunchMonitor {
 
   init(
     store: OTAStateStore, events: OTAEventQueue, decision: BootDecision, scheduler: OTAScheduler,
-    clock: @escaping () -> Int64 = currentMillis, readyToCheck: @escaping () -> Void = {}
+    crashMarker: OTACrashMarker? = nil, clock: @escaping () -> Int64 = currentMillis,
+    readyToCheck: @escaping () -> Void = {}
   ) {
     self.store = store
     self.events = events
     self.decision = decision
     self.scheduler = scheduler
+    self.crashMarker = crashMarker
     self.clock = clock
     self.readyToCheck = readyToCheck
   }
@@ -168,6 +202,7 @@ final class OTALaunchMonitor {
         return
       }
       let now = clock()
+      crashMarker?.arm()
       persist { state in
         var next = state
         next.attempt = LaunchAttempt(releaseId: pending.releaseId, startedAt: now)
@@ -183,6 +218,7 @@ final class OTALaunchMonitor {
       guard phase == .attempting else { return }
       cancelTimer?()
       record { state, queued, now in OTARollback.interrupted(state, events: &queued, now: now) }
+      crashMarker?.disarm()
       phase = .done
     }
   }
@@ -218,6 +254,7 @@ final class OTALaunchMonitor {
       guard phase == .attempting || phase == .grace else { return }
       cancelTimer?()
       record { state, queued, now in OTARollback.failed(state, reason: OTARollback.crash, events: &queued, now: now) }
+      crashMarker?.disarm()
       phase = .done
     }
   }
@@ -235,6 +272,7 @@ final class OTALaunchMonitor {
       guard phase == .attempting else { return }
       otaLog.warning("Live updates: no content \(Self.watchdogMs / 1000) s after the app became active, counting a failed launch")
       record { state, queued, now in OTARollback.failed(state, reason: OTARollback.watchdog, events: &queued, now: now) }
+      crashMarker?.disarm()
       phase = .done
     }
   }
@@ -257,6 +295,7 @@ final class OTALaunchMonitor {
       if let state {
         store.pruneReleases(keep: Set([state.stable?.releaseId, state.pending?.releaseId].compactMap { $0 }))
       }
+      crashMarker?.disarm()
       events.add(.create(OTAEvent.applied, releaseId: pending.releaseId, now: now))
       otaLog.info("Live updates: release \(pending.releaseId, privacy: .public) applied")
       phase = .done
@@ -272,6 +311,7 @@ final class OTALaunchMonitor {
       next.attempt = nil
       return next
     }
+    crashMarker?.disarm()
     phase = .done
   }
 
@@ -512,7 +552,8 @@ public final class NottiOTA: NSObject {
         embeddedHermesVersion: OTAUpdater.embeddedHermesVersion(), onPending: releaseReady
       )
       let monitor = OTALaunchMonitor(
-        store: store, events: events, decision: decision, scheduler: scheduler, readyToCheck: updater.onReady
+        store: store, events: events, decision: decision, scheduler: scheduler,
+        crashMarker: OTACrashMarker(store: store), readyToCheck: updater.onReady
       )
       current = Session(config: config, store: store, events: events, decision: decision, monitor: monitor)
       return current

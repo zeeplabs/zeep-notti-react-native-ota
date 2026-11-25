@@ -43,6 +43,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
 
   override func tearDown() {
     RCTSetFatalHandler(nil)
+    NottiOtaCrashMarkerUninstallForTests()
     super.tearDown()
   }
 
@@ -71,9 +72,9 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     return decision
   }
 
-  private func monitor(_ decision: BootDecision, requested: Bool = true) -> OTALaunchMonitor {
+  private func monitor(_ decision: BootDecision, requested: Bool = true, crashMarker: OTACrashMarker? = nil) -> OTALaunchMonitor {
     let monitor = OTALaunchMonitor(
-      store: store, events: events, decision: decision, scheduler: scheduler,
+      store: store, events: events, decision: decision, scheduler: scheduler, crashMarker: crashMarker,
       clock: { [scheduler] in scheduler.now }, readyToCheck: { [weak self] in self?.checks += 1 }
     )
     monitor.bundleRequested = requested
@@ -100,8 +101,13 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     XCTAssertEqual(eventTypes(), ["reverted_to_embedded:server"])
   }
 
-  func testALeftoverMarkerCountsOneFailedLaunch() throws {
+  private func markCrash() {
+    write("crash\n", to: store.crashMarkerFile)
+  }
+
+  func testALeftoverAttemptWithACrashMarkerCountsOneFailedLaunch() throws {
     try stateWith(pending: releaseB) { $0.attempt = LaunchAttempt(releaseId: self.releaseB, startedAt: 500) }
+    markCrash()
 
     let decision = boot()
 
@@ -109,6 +115,36 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     XCTAssertEqual(decision.state.lastFailureReason, "crash")
     XCTAssertNil(decision.state.attempt)
     XCTAssertEqual(decision.selected?.releaseId, releaseB)
+    XCTAssertFalse(store.crashMarked(), "the marker is consumed at boot")
+  }
+
+  func testALeftoverAttemptWithoutACrashMarkerIsInterrupted() throws {
+    try stateWith(pending: releaseB) { $0.attempt = LaunchAttempt(releaseId: self.releaseB, startedAt: 500) }
+    write("", to: store.crashMarkerFile)
+
+    let decision = boot()
+
+    XCTAssertEqual(decision.state.failedCount, 0)
+    XCTAssertEqual(decision.state.interruptedCount, 1)
+    XCTAssertNil(decision.state.attempt)
+    XCTAssertEqual(decision.selected?.releaseId, releaseB)
+    XCTAssertTrue(events.read().isEmpty)
+  }
+
+  func testThreeKilledLaunchesWithoutACrashCountAsOneFailure() throws {
+    try stateWith(pending: releaseB)
+    for _ in 0..<3 {
+      try store.update { state in
+        var next = state
+        next.attempt = LaunchAttempt(releaseId: self.releaseB, startedAt: 500)
+        return next
+      }
+      _ = boot()
+    }
+    XCTAssertEqual(load().failedCount, 1)
+    XCTAssertEqual(load().interruptedCount, 0)
+    XCTAssertEqual(load().lastFailureReason, "interrupted")
+    XCTAssertEqual(load().pending?.releaseId, releaseB)
   }
 
   func testASecondFailureRollsBackToStableAndBlocklists() throws {
@@ -116,6 +152,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
       $0.attempt = LaunchAttempt(releaseId: self.releaseB, startedAt: 500)
       $0.failedCount = 1
     }
+    markCrash()
 
     let decision = boot()
 
@@ -131,6 +168,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
       $0.attempt = LaunchAttempt(releaseId: self.releaseB, startedAt: 500)
       $0.failedCount = 1
     }
+    markCrash()
     XCTAssertNil(boot().selected)
   }
 
@@ -370,6 +408,26 @@ final class OTALaunchMonitorTests: TempDirTestCase {
 
     XCTAssertEqual((previousError as NSError?)?.code, 7)
     XCTAssertEqual(load().failedCount, 1)
+  }
+
+  func testAnAttemptArmsTheCrashMarkerAndEveryVerdictDisarmsIt() throws {
+    try stateWith(pending: releaseB)
+    let session = monitor(boot(), crashMarker: OTACrashMarker(store: store))
+    session.onForeground()
+    XCTAssertTrue(exists(store.crashMarkerFile))
+    XCTAssertFalse(store.crashMarked(), "armed, not crashed")
+    session.onContentAppeared()
+    scheduler.advance(3_000)
+    XCTAssertFalse(exists(store.crashMarkerFile))
+    XCTAssertEqual(load().stable?.releaseId, releaseB)
+  }
+
+  func testLeavingBeforeContentDisarmsTheCrashMarker() throws {
+    try stateWith(pending: releaseB)
+    let session = monitor(boot(), crashMarker: OTACrashMarker(store: store))
+    session.onForeground()
+    session.onBackground()
+    XCTAssertFalse(exists(store.crashMarkerFile))
   }
 
   func testWithoutAPreviousHandlerReactNativesDefaultStillRuns() throws {

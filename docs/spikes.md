@@ -90,3 +90,17 @@ Compiled `var a = 1; print(a + 1);` with the real `hermesc` (`-emit-binary`) fro
 - Version: bytes 8 to 11, little-endian uint32.
 
 The CLI can validate the magic before reading the version; the Android verifier already requires it (`HermesHeader`).
+
+## Follow-up (post-review F1): iOS crash marker instead of exit reasons
+
+iOS has no API for the reason the previous process ended, so the first iOS version (T38) counted any launch attempt left over at the next start as a failed launch. A user who swiped the app away within the first seconds of two launches would then roll back and block a good release.
+
+The SDK now arms a crash marker for the attempt window only (from the foreground activation until the attempt ends: applied, failed, interrupted or no verdict):
+
+- `OTACrashMarker.m` installs, once, a chained `NSSetUncaughtExceptionHandler` and `sigaction` handlers for SIGABRT, SIGSEGV, SIGBUS, SIGILL, SIGTRAP and SIGFPE, keeping the previous handlers;
+- arming opens `NottiOTA/crash.marker` ahead of time; the signal handler only calls `write` and `fsync` on that descriptor (async-signal-safe, no allocation, no Objective-C or Swift), then restores the previous action and calls it (or re-raises with the default action), so other crash reporters still see the crash;
+- a JS fatal error goes through the chained `RCTSetFatalHandler`, which records the failed launch in the state directly, before the crash.
+
+At the next start, a leftover attempt with a non-empty marker is a failed launch (`crash`); without it, the launch was interrupted (3 interrupted = 1 failed, as on Android API 30+). The 10 s watchdog still catches hangs (`watchdog`). XCTest covers the marker, the interrupted path, 3 interruptions = 1 failure, and the chaining of the previous signal and exception handlers.
+
+Known limit: a crash that kills the process without a catchable signal (out-of-memory or watchdog kill by the OS, SIGKILL) counts as interrupted, the same as on Android.

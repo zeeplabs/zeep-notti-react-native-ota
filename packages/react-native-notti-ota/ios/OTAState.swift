@@ -271,13 +271,14 @@ enum OTAPaths {
   }
 }
 
-/// Owns `Application Support/NottiOTA`: `state.json`, `releases/` and `tmp/`. The state file is
+/// Owns `Application Support/NottiOTA`: `state.json`, `crash.marker`, `releases/` and `tmp/`. The state file is
 /// replaced atomically (tmp file, fsync, rename), so a crash mid-write keeps the previous state.
 final class OTAStateStore {
   let root: URL
   let stateFile: URL
   let releasesDir: URL
   let tmpDir: URL
+  let crashMarkerFile: URL
   private let stateTmp: URL
   private let lock = NSRecursiveLock()
 
@@ -287,6 +288,18 @@ final class OTAStateStore {
     releasesDir = root.appendingPathComponent("releases", isDirectory: true)
     tmpDir = root.appendingPathComponent("tmp", isDirectory: true)
     stateTmp = root.appendingPathComponent("state.json.tmp")
+    crashMarkerFile = root.appendingPathComponent("crash.marker")
+  }
+
+  /// True when a crash handler wrote the marker during the last launch attempt. An empty file means
+  /// the attempt was armed but the process ended without crashing (a kill from the app switcher).
+  func crashMarked() -> Bool {
+    let size = (try? FileManager.default.attributesOfItem(atPath: crashMarkerFile.path)[.size] as? NSNumber)?.intValue
+    return (size ?? 0) > 0
+  }
+
+  func clearCrashMarker() {
+    unlink(crashMarkerFile.path)
   }
 
   static func defaultRoot() throws -> URL {
