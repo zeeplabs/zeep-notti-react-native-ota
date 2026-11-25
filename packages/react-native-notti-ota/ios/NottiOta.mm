@@ -15,9 +15,4 @@ RCT_EXPORT_MODULE()
   return std::make_shared<facebook::react::NativeNottiOtaSpecJSI>(params);
 }
 
-+ (NSString *)moduleName
-{
-  return @"NottiOta";
-}
-
 @end
