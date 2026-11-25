@@ -20,18 +20,18 @@ The example apps depend on the packages through `link:`, like a customer install
 | --- | --- | --- |
 | `expo-modules-autolinking resolve --platform android` lists `NottiOtaExpoPackage` | yes | yes |
 | `expo-modules-autolinking resolve --platform apple` lists `NottiOtaReactDelegateHandler` (pod `NottiOtaExpo`) | yes | yes |
-| Generated `ExpoModulesProvider.swift` registers the handler | yes (`(packageName: "react-native-notti-ota-expo", handler: NottiOtaReactDelegateHandler.self)`) | see below |
+| Generated `ExpoModulesProvider.swift` registers the handler | yes (`(packageName: "react-native-notti-ota-expo", handler: NottiOtaReactDelegateHandler.self)`) | yes |
 | `ReactNativeHostHandler` interface | identical file in both versions | identical |
 | Android Release APK builds with the adapter | yes | yes |
 | Android Release run on the emulator calls `getJSBundleFile` | yes: `I NottiOta: Live updates: Expo bundle hook called (developer support: false)`, then `Running "main"` | yes, same log line |
-| iOS Release (simulator) builds with the adapter | yes | see below |
-| iOS Release run calls `bundleURL(reactDelegate:)` | **not confirmed**: the app crashes in UIKit before React starts, see "iOS 27 scene lifecycle" | see below |
+| iOS Release (simulator) builds with the adapter | yes | yes (the first build failed on a 5 s `ExpoModulesMacros scan-modules` timeout under load; the rebuild passed) |
+| iOS Release run calls `bundleURL(reactDelegate:)` | **not confirmed**: the app crashes in UIKit before React starts, see "iOS 27 scene lifecycle" | yes: `[com.notti.ota:NottiOta] Live updates: Expo bundle hook called`, then `Running "main"` (the Expo 58 template has a `SceneDelegate`) |
 
 **Bare apps do not link Expo.** `react-native config` in `example-bare-083` and `example-bare-088` autolinks only `react-native-safe-area-context` and `react-native-notti-ota`; neither has `expo-modules-core` in `node_modules`, and the bare 0.83 Release APK has no `expo` entry.
 
 **iOS 27 scene lifecycle (new risk, not caused by the adapter).** The Expo 55 Release app built with the iOS 27 SDK stops with `EXC_BREAKPOINT` in `_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` while UIKit creates the first scene, before any React or adapter code runs (crash report `exampleexpo55-2026-11-25-163549.ips`). Apps built with the newest Xcode must adopt `UIScene`; the Expo 55 / RN 0.83 templates use the app-delegate lifecycle. This matters for the iOS launch monitor (T38, risk R11) and for the RN 0.83 / Expo 55 floor when customers build with Xcode 27. To confirm on a device or an older simulator runtime before T38.
 
-**Result: no blocker for T32.** Android is confirmed on both Expo versions. On iOS the handler is registered by autolinking on Expo 55; the runtime call is still open because of the scene-lifecycle crash above, and needs a confirmation before T38/T42 (iOS phase 5b/5c).
+**Result: no blocker for T32.** Android is confirmed at runtime on both Expo versions, iOS at runtime on Expo 58. On Expo 55 iOS the handler is registered by autolinking, but the runtime call could not be observed because of the scene-lifecycle crash above; confirm it on an iOS 26 runtime or a device before T38/T42 (phases 5b/5c).
 
 ## (b) iOS gzip + ustar extractor with `Compression` (R10)
 
