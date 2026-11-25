@@ -1,0 +1,45 @@
+{
+  "name": "react-native-notti-ota",
+  "version": "0.1.0",
+  "description": "Notti Live updates for React Native: signed JS bundle updates with automatic rollback",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "react-native": "./src/index.ts",
+  "files": [
+    "src",
+    "android",
+    "ios",
+    "*.podspec",
+    "!ios/build",
+    "!ios/Tests",
+    "!android/build",
+    "!android/src/test",
+    "!**/__tests__",
+    "!**/.*"
+  ],
+  "keywords": [
+    "react-native",
+    "ios",
+    "android",
+    "live-updates"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeeplabs/zeep-notti-react-native-ota.git",
+    "directory": "packages/react-native-notti-ota"
+  },
+  "author": "Zeep Tecnologia <opensource@zeeplabs.com.br> (https://github.com/zeeplabs)",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": ">=0.83.0"
+  },
+  "codegenConfig": {
+    "name": "NottiOtaSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.notti.ota"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "reactDelegateHandlers": ["NottiOtaReactDelegateHandler"]
+  },
+  "android": {
+    "packages": ["com.notti.ota.expo.NottiOtaExpoPackage"]
+  }
+}

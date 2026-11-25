@@ -1,0 +1,24 @@
+{
+  "name": "example-expo-55",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "prebuild": "expo prebuild --clean --no-install",
+    "build:android": "expo prebuild --platform android --no-install && cd android && ./gradlew assembleRelease --console=plain",
+    "build:ios": "expo prebuild --platform ios && xcodebuild -workspace ios/*.xcworkspace -scheme $(basename ios/*.xcworkspace .xcworkspace) -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build"
+  },
+  "dependencies": {
+    "expo": "~55.0.32",
+    "expo-status-bar": "~55.0.6",
+    "react": "19.2.0",
+    "react-native": "0.83.10",
+    "react-native-notti-ota": "link:../packages/react-native-notti-ota",
+    "react-native-notti-ota-expo": "link:../packages/react-native-notti-ota-expo"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~5.9.2"
+  },
+  "private": true
+}

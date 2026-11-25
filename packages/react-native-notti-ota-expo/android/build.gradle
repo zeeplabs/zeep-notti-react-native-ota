@@ -1,0 +1,19 @@
+apply plugin: "com.android.library"
+
+group = "com.notti.ota.expo"
+version = "0.1.0"
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+useCoreDependencies()
+useDefaultAndroidSdkVersions()
+useExpoPublishing()
+
+android {
+  namespace "com.notti.ota.expo"
+}
+
+dependencies {
+  implementation project(":react-native-notti-ota")
+}

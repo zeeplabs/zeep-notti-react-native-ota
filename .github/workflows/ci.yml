@@ -1,0 +1,106 @@
+name: CI
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 4 * * *'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test --maxWorkers=2
+
+  android-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - name: Install example-bare-083
+        working-directory: example-bare-083
+        run: pnpm install --ignore-workspace --frozen-lockfile
+      - name: Run Android native unit tests
+        working-directory: example-bare-083/android
+        run: ./gradlew :react-native-notti-ota:testDebugUnitTest --console=plain
+
+  ios-unit:
+    runs-on: macos-latest
+    env:
+      RCT_USE_RN_DEP: 1
+      RCT_USE_PREBUILT_RNCORE: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - name: Install example-bare-083
+        working-directory: example-bare-083
+        run: |
+          pnpm install --ignore-workspace --frozen-lockfile
+          bundle install
+          bundle exec pod install --project-directory=ios
+      - name: Run iOS native unit tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -workspace example-bare-083/ios/NottiOtaBare083.xcworkspace \
+            -scheme NottiOta-Unit-Tests \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            CODE_SIGNING_ALLOWED=NO
+
+  # Release builds of every example (design risk R13): on pull requests to main
+  # and nightly, not on every push.
+  examples-android:
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [example-bare-083, example-bare-088, example-expo-55, example-expo-58]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - name: Build ${{ matrix.example }} for Android (Release)
+        working-directory: ${{ matrix.example }}
+        env:
+          JAVA_OPTS: '-XX:MaxHeapSize=6g'
+        run: |
+          pnpm install --ignore-workspace --frozen-lockfile
+          pnpm build:android
+
+  examples-ios:
+    if: github.event_name != 'push'
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [example-bare-083, example-bare-088, example-expo-55, example-expo-58]
+    env:
+      RCT_USE_RN_DEP: 1
+      RCT_USE_PREBUILT_RNCORE: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - name: Build ${{ matrix.example }} for iOS (Release)
+        working-directory: ${{ matrix.example }}
+        run: |
+          pnpm install --ignore-workspace --frozen-lockfile
+          pnpm build:ios

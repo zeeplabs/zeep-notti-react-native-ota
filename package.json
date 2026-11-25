@@ -1,0 +1,65 @@
+{
+  "name": "zeep-notti-react-native-ota-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Notti Live updates for React Native: native core and Expo adapter",
+  "scripts": {
+    "typecheck": "tsc",
+    "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "test": "jest",
+    "ci:local": "bash scripts/ci-local.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeeplabs/zeep-notti-react-native-ota.git"
+  },
+  "author": "Zeep Tecnologia <opensource@zeeplabs.com.br> (https://github.com/zeeplabs)",
+  "license": "MIT",
+  "devDependencies": {
+    "@commitlint/config-conventional": "^21.0.2",
+    "@eslint/compat": "^2.1.0",
+    "@eslint/eslintrc": "^3.3.5",
+    "@eslint/js": "^9.39.4",
+    "@jest/globals": "^29.7.0",
+    "@react-native/babel-preset": "0.83.10",
+    "@react-native/eslint-config": "0.83.10",
+    "@types/jest": "^29.5.14",
+    "@types/react": "^19.1.1",
+    "commitlint": "^21.0.2",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "jest": "^29.7.0",
+    "lefthook": "^2.1.9",
+    "prettier": "^3.8.3",
+    "react": "19.2.0",
+    "react-native": "0.83.10",
+    "typescript": "~5.9.3"
+  },
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">= 22.11.0"
+  },
+  "prettier": {
+    "quoteProps": "consistent",
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "useTabs": false
+  },
+  "jest": {
+    "preset": "react-native",
+    "roots": [
+      "<rootDir>/packages"
+    ],
+    "modulePathIgnorePatterns": [
+      "<rootDir>/packages/[^/]+/lib/",
+      "<rootDir>/example-"
+    ]
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  }
+}
