@@ -313,8 +313,7 @@ object NottiOta {
   internal fun prepare(
     context: Context,
     exits: ExitReasonSource = AndroidExitReasons(context),
-    scheduler: OTAScheduler = MainThreadScheduler,
-    readyToCheck: () -> Unit = {}
+    scheduler: OTAScheduler = MainThreadScheduler
   ): Session? {
     if (prepared) return session
     prepared = true
@@ -326,10 +325,11 @@ object NottiOta {
     val decision = OTABoot.decide(opened, store, exits, now)
     if (decision.state != opened) store.save(decision.state)
     decision.events.forEach(events::add)
+    val updater = OTAUpdater(config, store, events, OTAApiClient(config), OTAUpdater.embeddedHermesVersion(context))
     val monitor = OTALaunchMonitor(
       store, events, decision, scheduler,
       loadedSource = { (context as? ReactApplication)?.reactHost?.currentReactContext?.sourceURL },
-      readyToCheck = readyToCheck
+      readyToCheck = updater::onReady
     )
     return Session(config, store, events, decision, monitor).also { session = it }
   }
