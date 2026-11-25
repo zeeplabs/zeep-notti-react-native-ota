@@ -1,4 +1,9 @@
-#import "NottiOta.h"
+#import <NottiOtaSpec/NottiOtaSpec.h>
+
+// Declared here rather than in a header: the codegen spec is C++, and a public header importing it
+// would make the pod's Swift module unimportable (the Expo adapter and the tests import it).
+@interface NottiOta : NSObject <NativeNottiOtaSpec>
+@end
 
 @implementation NottiOta
 
