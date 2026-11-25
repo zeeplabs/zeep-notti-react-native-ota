@@ -15,6 +15,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
 
   s.dependency "ExpoModulesCore"
+  s.dependency "NottiOta"
   s.source_files = "**/*.swift"
   s.swift_version = "5.9"
 end

@@ -33,6 +33,22 @@ The example apps depend on the packages through `link:`, like a customer install
 
 **Result: no blocker for T32.** Android is confirmed at runtime on both Expo versions, iOS at runtime on Expo 58. On Expo 55 iOS the handler is registered by autolinking, but the runtime call could not be observed because of the scene-lifecycle crash above; confirm it on an iOS 26 runtime or a device before T38/T42 (phases 5b/5c).
 
+### Follow-up (T42): Expo 55 on iOS with the scene life cycle
+
+Run on 2026-11-25 (Xcode 27.2, iOS 27.1 simulator "iPhone Duo"). `example-expo-55` now has an example-only config plugin, `plugins/withSceneLifecycle.js`, that adds `UIApplicationSceneManifest` to `Info.plist` and moves the window creation and `startReactNative` from `AppDelegate.didFinishLaunching` into a `SceneDelegate` (Expo 55 has no `ExpoAppSceneDelegate`). The app also uses the real adapter (calling `NottiOTA.bundleURL()`) and the `react-native-notti-ota` config plugin.
+
+Release build, cold launch, `log show --info`:
+
+```
+17:37:46.960 [com.notti.ota:NottiOta] Live updates: Expo bundle hook called (Live update selected: false)
+17:37:47.123 [com.facebook.react.log:javascript] Running "main"
+17:37:50.965 [com.notti.ota:NottiOta] Live updates: update check failed
+```
+
+No crash report, the process stays up, and `state.json` shows no `integration_missing` and a recorded `last_check_at` (the check needs first content after a foreground activation; it failed only because no Notti server runs at the example's `localhost:8080`).
+
+**Result: confirmed.** With `UIScene` adopted, Expo 55 calls the adapter's `bundleURL(reactDelegate:)` before React runs the bundle. Without it, the Expo 55 template still stops in UIKit when built with the iOS 27 SDK; the package README tells customers to adopt `UIScene` or use Expo SDK 56+ when building with Xcode 27.
+
 ## (b) iOS gzip + ustar extractor with `Compression` (R10)
 
 **Prototype.** `spikes/ios-extractor/main.swift`, run with `swift spikes/ios-extractor/main.swift fixtures/ota`:
