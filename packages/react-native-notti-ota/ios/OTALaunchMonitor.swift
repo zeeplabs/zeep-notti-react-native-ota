@@ -486,7 +486,13 @@ public final class NottiOTA: NSObject {
       let decision = OTABoot.decide(opened, store: store, now: currentMillis())
       if decision.state != opened { try store.save(decision.state) }
       decision.events.forEach(events.add)
-      let monitor = OTALaunchMonitor(store: store, events: events, decision: decision, scheduler: scheduler)
+      let updater = OTAUpdater(
+        config: config, store: store, events: events, api: OTAApiClient(config: config),
+        embeddedHermesVersion: OTAUpdater.embeddedHermesVersion()
+      )
+      let monitor = OTALaunchMonitor(
+        store: store, events: events, decision: decision, scheduler: scheduler, readyToCheck: updater.onReady
+      )
       current = Session(config: config, store: store, events: events, decision: decision, monitor: monitor)
       return current
     } catch {
