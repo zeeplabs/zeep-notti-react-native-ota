@@ -7,6 +7,7 @@ import android.app.ApplicationExitInfo
 import android.content.ContentProvider
 import android.content.ContentValues
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.database.Cursor
 import android.net.Uri
 import android.os.Build
@@ -141,6 +142,7 @@ internal class OTALaunchMonitor(
   @Volatile var bundleRequested = false
   @Volatile var disabled = false
     private set
+  private var developerSupport = false
   var phase = Phase.STARTING
     private set
 
@@ -151,8 +153,24 @@ internal class OTALaunchMonitor(
   private val attemptingRelease: ReleasePointer?
     get() = if (bundleRequested && decision.selectedIsPending) decision.selected else null
 
+  /**
+   * The host loads its bundle from the dev server: no attempt, no check and no integration report,
+   * the same as a debug build. A launch attempt already started ends without a verdict.
+   */
+  @Synchronized
+  fun onDeveloperSupport() {
+    developerSupport = true
+    disabled = true
+    if (phase == Phase.ATTEMPTING || phase == Phase.GRACE) {
+      cancelTimer?.invoke()
+      store.update { it.copy(attempt = null) }
+    }
+    phase = Phase.DONE
+  }
+
   @Synchronized
   fun onForeground() {
+    if (developerSupport) return
     foregroundCount++
     if (foregroundCount > 1 || phase != Phase.STARTING) {
       if (phase == Phase.DONE && !disabled) readyToCheck()
@@ -178,7 +196,7 @@ internal class OTALaunchMonitor(
 
   @Synchronized
   fun onContentAppeared() {
-    if (contentAppeared) return
+    if (contentAppeared || developerSupport) return
     contentAppeared = true
     checkIntegration()
     when (phase) {
@@ -312,6 +330,19 @@ object NottiOta {
       null
     }
 
+  /**
+   * Turns Live updates off for this session when the host runs with developer support (bundle
+   * from the dev server). Debug builds never start a session at all. Never throws.
+   */
+  @JvmStatic
+  fun onDeveloperSupport() {
+    try {
+      session?.monitor?.onDeveloperSupport()
+    } catch (t: Throwable) {
+      Log.e(TAG, "Live updates: could not turn off for developer support (${t.javaClass.simpleName})")
+    }
+  }
+
   /** The Live update this session runs: selected, asked for by the host and not overridden. */
   internal fun currentReleaseId(): String? {
     val current = session ?: return null
@@ -331,10 +362,15 @@ object NottiOta {
   internal fun prepare(
     context: Context,
     exits: ExitReasonSource = AndroidExitReasons(context),
-    scheduler: OTAScheduler = MainThreadScheduler
+    scheduler: OTAScheduler = MainThreadScheduler,
+    debuggable: Boolean = isDebuggable(context)
   ): Session? {
     if (prepared) return session
     prepared = true
+    if (debuggable) {
+      Log.i(TAG, "Live updates: off in debug builds, the bundle comes from the dev server")
+      return null
+    }
     val config = OTAConfig.read(context) ?: return null
     val store = OTAStateStore(File(context.filesDir, "notti-ota"))
     val events = OTAEventQueue(File(store.root, "events.json"))
@@ -353,6 +389,16 @@ object NottiOta {
       readyToCheck = updater::onReady
     )
     return Session(config, store, events, decision, monitor).also { session = it }
+  }
+
+  /** Debug builds of the host app (`android:debuggable`), which load their bundle from Metro. */
+  internal fun isDebuggable(context: Context): Boolean {
+    val info = try {
+      context.packageManager.getApplicationInfo(context.packageName, 0)
+    } catch (e: Exception) {
+      context.applicationInfo
+    } ?: return false
+    return (info.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
   }
 
   internal fun resetForTests() {

@@ -26,9 +26,11 @@ class NottiOtaHostHandlerTest {
   }
 
   @Test
-  fun developerSupportNeverAsksForALiveUpdate() {
+  fun developerSupportNeverAsksForALiveUpdateAndTurnsTheSessionOff() {
     var asked = false
-    assertNull(NottiOtaHostHandler { asked = true; "/x" }.getJSBundleFile(true))
+    var turnedOff = false
+    assertNull(NottiOtaHostHandler({ turnedOff = true }) { asked = true; "/x" }.getJSBundleFile(true))
     assertEquals(false, asked)
+    assertEquals(true, turnedOff)
   }
 }

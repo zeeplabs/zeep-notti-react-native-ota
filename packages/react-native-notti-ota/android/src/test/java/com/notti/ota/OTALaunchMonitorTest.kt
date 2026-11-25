@@ -325,6 +325,41 @@ class OTALaunchMonitorTest {
   }
 
   @Test
+  fun developerSupportNeverReportsAMissingHookOrAnOverride() {
+    setUpStore()
+    val before = stateWith(pending = releaseB)
+    val monitor = monitor(boot(), requested = false, loaded = "/dev-server/index.bundle")
+    monitor.onDeveloperSupport()
+    monitor.onForeground()
+    monitor.onContentAppeared()
+    scheduler.advance(20_000)
+
+    assertTrue(eventTypes().isEmpty())
+    assertEquals(before, store.load()!!)
+    assertEquals(0, checks)
+  }
+
+  @Test
+  fun developerSupportLearnedDuringAnAttemptEndsItWithoutAVerdict() {
+    setUpStore()
+    stateWith(pending = releaseB)
+    val monitor = monitor(boot())
+    monitor.onForeground()
+    assertNotNull(store.load()!!.attempt)
+
+    monitor.onDeveloperSupport()
+    scheduler.advance(20_000)
+    monitor.onBackground()
+
+    val state = store.load()!!
+    assertNull(state.attempt)
+    assertEquals(0, state.failedCount)
+    assertEquals(0, state.interruptedCount)
+    assertEquals(releaseB, state.pending?.releaseId)
+    assertTrue(eventTypes().isEmpty())
+  }
+
+  @Test
   fun anOverriddenBundleTurnsLiveUpdatesOffForTheSession() {
     setUpStore()
     stateWith(pending = releaseB)
@@ -387,6 +422,50 @@ class NottiOtaEntryTest {
     putString(OTAConfig.KEY_CHANNEL, "production")
     putString(OTAConfig.KEY_RUNTIME_VERSION, "1.4.0")
     putString(OTAConfig.KEY_PUBLIC_KEYS, "${Fixtures.keyId}:${Fixtures.publicKeyBase64}")
+  }
+
+  private fun configureDebuggable(metaData: Bundle?) {
+    shadowOf(context.packageManager).installPackage(
+      PackageInfo().apply {
+        packageName = context.packageName
+        versionName = "1.0"
+        lastUpdateTime = 1
+        applicationInfo = ApplicationInfo().apply {
+          packageName = context.packageName
+          this.metaData = metaData
+          flags = ApplicationInfo.FLAG_DEBUGGABLE
+        }
+      }
+    )
+  }
+
+  @Test
+  fun aDebugBuildIsInertEvenWithAPendingRelease() {
+    configureDebuggable(validMetaData())
+    val root = File(context.filesDir, "notti-ota")
+
+    assertTrue(NottiOta.isDebuggable(context))
+    assertNull(NottiOta.getJSBundleFile(context))
+    assertNull(NottiOta.session)
+    assertNull(NottiOta.currentReleaseId())
+    assertFalse(root.exists())
+  }
+
+  @Test
+  fun aReleaseBuildIsNotDebuggable() {
+    configure(validMetaData())
+    assertFalse(NottiOta.isDebuggable(context))
+    assertNotNull(NottiOta.prepare(context))
+  }
+
+  @Test
+  fun developerSupportTurnsAReleaseSessionOffAndNeverThrowsWithoutOne() {
+    NottiOta.onDeveloperSupport()
+    configure(validMetaData())
+    val session = NottiOta.prepare(context)!!
+    NottiOta.onDeveloperSupport()
+    assertTrue(session.monitor.disabled)
+    assertNull(NottiOta.currentReleaseId())
   }
 
   @Test

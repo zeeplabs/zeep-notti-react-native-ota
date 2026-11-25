@@ -7,5 +7,5 @@ import expo.modules.core.interfaces.ReactNativeHostHandler
 
 class NottiOtaExpoPackage : Package {
   override fun createReactNativeHostHandlers(context: Context): List<ReactNativeHostHandler> =
-    listOf(NottiOtaHostHandler { NottiOta.getJSBundleFile(context) })
+    listOf(NottiOtaHostHandler(NottiOta::onDeveloperSupport) { NottiOta.getJSBundleFile(context) })
 }

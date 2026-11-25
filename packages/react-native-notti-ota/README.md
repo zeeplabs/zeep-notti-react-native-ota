@@ -11,7 +11,7 @@ Requirements: React Native 0.83 or newer (New Architecture), iOS 15.1+, Android 
 - A new update must show content for 3 seconds without a fatal error. Two failed launches (crash, or no content within 10 seconds) roll it back and block it on that device.
 - A launch the user ends early (swiping the app away) or the OS ends without a crash is *interrupted*, not failed: 3 interrupted launches count as 1 failed launch. The SDK tells a crash from a kill with chained crash handlers (JS fatal error, uncaught exception, fatal signal) that always hand the crash on to the handlers installed before them, so crash reporters such as Crashlytics or Sentry keep working.
 - Installing a new binary (store update, new build) discards every downloaded update.
-- Debug builds always load from Metro; Live updates only act in Release builds.
+- Debug builds always load from Metro; Live updates only act in Release builds. In a debug build (or, on Android, a host running with developer support) the SDK stays off: it selects nothing, changes no state and reports nothing.
 
 ## Configuration
 
