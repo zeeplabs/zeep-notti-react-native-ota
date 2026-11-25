@@ -23,9 +23,43 @@ Add these keys to `Info.plist` (iOS) and as `<meta-data>` in `AndroidManifest.xm
 | `NottiOTAClientKey` | The App's client key (public, device-restricted) |
 | `NottiOTAChannel` | Release channel, `[a-z0-9-]{1,32}`, for example `production` |
 | `NottiOTARuntimeVersion` | Your runtime version: change it whenever native code changes |
-| `NottiOTAPublicKeys` | 1 to 5 signing public keys, comma-separated, each `key_id:base64` (the 65-byte uncompressed P-256 point, as printed by `notti ota keys generate`) |
+| `NottiOTAPublicKeys` | 1 to 5 signing public keys, comma-separated, each `key_id:base64`: the `key_id` printed by `notti ota keys generate`, and the 65-byte uncompressed P-256 point of its public key in base64 (`openssl pkey -pubin -in public_key.pem -outform DER \| tail -c 65 \| base64`) |
 
 On Android, a meta-data value that looks like a decimal number (`1.10`) is read as a float and refused; use `1.10.0` or another non-numeric form.
+
+## Expo
+
+Expo SDK 55 or newer, with prebuild or a development build (not Expo Go). Install both packages; `react-native-notti-ota-expo` connects the SDK to Expo's supported bundle hooks, with no edits to `AppDelegate` or `MainApplication`.
+
+```sh
+npx expo install react-native-notti-ota react-native-notti-ota-expo
+```
+
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "react-native-notti-ota",
+        {
+          "appId": "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+          "baseUrl": "https://api.notti.app",
+          "clientKey": "your-client-key",
+          "channel": "production",
+          "runtimeVersion": "1.4.0",
+          "publicKeys": ["-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"]
+        }
+      ]
+    ]
+  }
+}
+```
+
+`publicKeys` takes the PEM printed by `notti ota keys generate` (1 to 5 keys); the plugin writes the native configuration on both platforms. `expo prebuild` fails when:
+
+- `expo-updates` is installed, even with `updates.enabled` set to `false`: both load the app bundle, so they cannot be used together;
+- `react-native-notti-ota-expo` is not installed;
+- an option is invalid, or a value would be read as a number on Android (`1.10`: use `1.10.0`).
 
 ## Bare React Native
 

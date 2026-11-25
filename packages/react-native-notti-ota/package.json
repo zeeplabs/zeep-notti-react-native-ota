@@ -10,6 +10,8 @@
     "android",
     "ios",
     "*.podspec",
+    "app.plugin.js",
+    "plugin/build",
     "!ios/build",
     "!ios/Tests",
     "!android/build",
@@ -32,7 +34,8 @@
   "license": "MIT",
   "peerDependencies": {
     "react": "*",
-    "react-native": ">=0.83.0"
+    "react-native": ">=0.83.0",
+    "@expo/config-plugins": "*"
   },
   "codegenConfig": {
     "name": "NottiOtaSpec",
@@ -40,6 +43,18 @@
     "jsSrcsDir": "src",
     "android": {
       "javaPackageName": "com.notti.ota"
+    }
+  },
+  "devDependencies": {
+    "@expo/config-plugins": "^55.0.12",
+    "@types/node": "^22.20.7"
+  },
+  "scripts": {
+    "build:plugin": "tsc -p plugin/tsconfig.json"
+  },
+  "peerDependenciesMeta": {
+    "@expo/config-plugins": {
+      "optional": true
     }
   }
 }
