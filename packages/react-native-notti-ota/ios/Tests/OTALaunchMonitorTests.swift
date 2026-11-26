@@ -81,7 +81,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     return monitor
   }
 
-  private func eventTypes() -> [String] { events.read().map { "\($0.type):\($0.reason ?? "")" } }
+  private func eventTypes() -> [String] { events.read().map { "\($0.type):\($0.reason ?? "")@\($0.releaseId ?? "")" } }
 
   func testAPendingReleaseIsSelectedAtBoot() throws {
     try stateWith(stable: releaseA, pending: releaseB)
@@ -98,7 +98,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     XCTAssertNil(decision.selected)
     XCTAssertFalse(decision.state.revertToEmbedded)
     XCTAssertFalse(exists(store.releaseDir(releaseA)))
-    XCTAssertEqual(eventTypes(), ["reverted_to_embedded:server"])
+    XCTAssertEqual(eventTypes(), ["reverted_to_embedded:server@\(releaseA)"])
   }
 
   private func markCrash() {
@@ -160,7 +160,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     XCTAssertNil(decision.state.pending)
     XCTAssertEqual(decision.state.blocklist, [releaseB])
     XCTAssertFalse(exists(store.releaseDir(releaseB)))
-    XCTAssertEqual(eventTypes(), ["rolled_back:crash"])
+    XCTAssertEqual(eventTypes(), ["rolled_back:crash@\(releaseB)"])
   }
 
   func testARollbackWithoutStableBootsEmbedded() throws {
@@ -203,7 +203,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     let session = monitor(boot())
     session.onForeground()
     session.onBackground()
-    XCTAssertEqual(eventTypes(), ["rolled_back:interrupted"])
+    XCTAssertEqual(eventTypes(), ["rolled_back:interrupted@\(releaseB)"])
     XCTAssertEqual(load().blocklist, [releaseB])
   }
 
@@ -229,7 +229,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     XCTAssertNil(state.pending)
     XCTAssertNil(state.attempt)
     XCTAssertFalse(exists(store.releaseDir(releaseA)))
-    XCTAssertEqual(eventTypes(), ["applied:"])
+    XCTAssertEqual(eventTypes(), ["applied:@\(releaseB)"])
     XCTAssertEqual(checks, 1)
   }
 
@@ -250,7 +250,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     second.onForeground()
     scheduler.advance(10_000)
     XCTAssertNil(load().pending)
-    XCTAssertEqual(eventTypes(), ["rolled_back:watchdog"])
+    XCTAssertEqual(eventTypes(), ["rolled_back:watchdog@\(releaseB)"])
   }
 
   func testACrashBeforeContentOrDuringTheGraceIsAFailure() throws {
@@ -266,7 +266,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     scheduler.advance(1_000)
     second.onFatal()
     XCTAssertNil(load().pending)
-    XCTAssertEqual(eventTypes(), ["rolled_back:crash"])
+    XCTAssertEqual(eventTypes(), ["rolled_back:crash@\(releaseB)"])
   }
 
   func testACrashAfterSuccessDoesNotRevert() throws {
@@ -349,7 +349,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
       scheduler.advance(10_000)
       XCTAssertTrue(session.disabled)
     }
-    XCTAssertEqual(eventTypes(), ["integration_missing:"])
+    XCTAssertEqual(eventTypes(), ["integration_missing:@"])
     XCTAssertEqual(checks, 0)
     XCTAssertEqual(load().failedCount, 0)
     XCTAssertNotNil(load().pending)
@@ -364,7 +364,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     scheduler.advance(10_000)
 
     XCTAssertTrue(session.disabled)
-    XCTAssertEqual(eventTypes(), ["bundle_overridden:"])
+    XCTAssertEqual(eventTypes(), ["bundle_overridden:@\(releaseB)"])
     XCTAssertNil(load().attempt)
     XCTAssertEqual(load().failedCount, 0)
     XCTAssertNotNil(load().pending)
@@ -382,7 +382,7 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     XCTAssertEqual(load().pending?.releaseId, releaseB)
     XCTAssertNil(load().stable)
     XCTAssertNil(load().attempt)
-    XCTAssertEqual(eventTypes(), ["bundle_overridden:"])
+    XCTAssertEqual(eventTypes(), ["bundle_overridden:@\(releaseB)"])
   }
 
   func testTheSelectedBundleLoadedIsNotAnOverride() throws {

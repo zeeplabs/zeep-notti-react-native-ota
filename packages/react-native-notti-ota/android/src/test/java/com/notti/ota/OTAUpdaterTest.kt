@@ -99,7 +99,7 @@ class OTAUpdaterTest {
     )
   }
 
-  private fun eventTypes() = events.read().map { "${it.type}:${it.reason ?: ""}" }
+  private fun eventTypes() = events.read().map { "${it.type}:${it.reason ?: ""}@${it.releaseId ?: ""}" }
 
   private fun tmpIsEmpty() = store.tmpDir.listFiles().isNullOrEmpty()
 
@@ -113,7 +113,7 @@ class OTAUpdaterTest {
     assertEquals(ReleasePointer(releaseId, "index.android.bundle", mandatory = true), state.pending)
     assertTrue(store.bundleFile(state.pending!!).isFile)
     assertEquals(now, state.lastCheckAt)
-    assertEquals(listOf("downloaded:"), eventTypes())
+    assertEquals(listOf("downloaded:@$releaseId"), eventTypes())
     assertTrue(tmpIsEmpty())
     assertEquals(listOf(state.pending), pendingNotices)
 
@@ -175,7 +175,7 @@ class OTAUpdaterTest {
     }
     updater().check()
     assertNull(store.load()!!.pending)
-    assertEquals(listOf("download_failed:network"), eventTypes())
+    assertEquals(listOf("download_failed:network@$releaseId"), eventTypes())
     assertTrue(tmpIsEmpty())
     assertFalse(store.releaseDir(releaseId).exists())
   }
@@ -185,7 +185,7 @@ class OTAUpdaterTest {
     checkResponse = offer()
     archiveResponse = { MockResponse().setResponseCode(403) }
     updater().check()
-    assertEquals(listOf("download_failed:http_status"), eventTypes())
+    assertEquals(listOf("download_failed:http_status@$releaseId"), eventTypes())
   }
 
   @Test
@@ -193,7 +193,7 @@ class OTAUpdaterTest {
     checkResponse = offer()
     archiveResponse = { MockResponse().setBody(Buffer().write(Fixtures.bytes("archives/valid.tar.gz"))).setHeadersDelay(2, TimeUnit.SECONDS) }
     updater(readTimeoutMs = 300).check()
-    assertEquals(listOf("download_failed:timeout"), eventTypes())
+    assertEquals(listOf("download_failed:timeout@$releaseId"), eventTypes())
     assertTrue(tmpIsEmpty())
   }
 
@@ -202,7 +202,7 @@ class OTAUpdaterTest {
     checkResponse = offer()
     freeSpace = 100
     updater().check()
-    assertEquals(listOf("download_failed:no_space"), eventTypes())
+    assertEquals(listOf("download_failed:no_space@$releaseId"), eventTypes())
     assertEquals(0, requests.count { it.path!!.startsWith("/archive") })
   }
 
@@ -212,7 +212,7 @@ class OTAUpdaterTest {
     archiveResponse = { MockResponse().setBody(Buffer().write(Fixtures.bytes("archives/tampered.tar.gz"))) }
     updater().check()
     assertNull(store.load()!!.pending)
-    assertEquals(listOf("verification_failed:hash"), eventTypes())
+    assertEquals(listOf("verification_failed:hash@$releaseId"), eventTypes())
     assertTrue(tmpIsEmpty())
   }
 
@@ -221,7 +221,7 @@ class OTAUpdaterTest {
     config = config.copy(runtimeVersion = "2.0.0")
     checkResponse = offer()
     updater().check()
-    assertEquals(listOf("verification_failed:incompatible"), eventTypes())
+    assertEquals(listOf("verification_failed:incompatible@$releaseId"), eventTypes())
     assertEquals(0, requests.count { it.path!!.startsWith("/archive") })
   }
 
@@ -264,6 +264,61 @@ class OTAUpdaterTest {
     val event = batch.getJSONArray("events").getJSONObject(0)
     assertEquals(setOf("event_id", "type", "release_id", "reason", "occurred_at"), event.keys().asSequence().toSet())
     assertEquals(50, batch.getJSONArray("events").length())
+  }
+
+  @Test
+  fun theFlushedBatchCarriesEachEventByValue() {
+    val queued = listOf(
+      OTAEvent.create(OTAEvent.DOWNLOADED, releaseId, now = now),
+      OTAEvent.create(OTAEvent.VERIFICATION_FAILED, otherRelease, "signature", now + 1),
+      OTAEvent.create(OTAEvent.INTEGRATION_MISSING, null, now = now + 2)
+    )
+    queued.forEach(events::add)
+    updater().flushEvents()
+
+    val request = requests.single { it.path!!.endsWith("/ota/events") }
+    assertEquals("/v1/apps/${manifest.appId}/ota/events", request.path)
+    assertEquals("Bearer ck_live", request.getHeader("Authorization"))
+    val batch = JSONObject(request.body.readUtf8())
+    assertEquals(store.load()!!.installationId, batch.getString("installation_id"))
+    assertEquals("android", batch.getString("platform"))
+    val sent = batch.getJSONArray("events")
+    assertEquals(3, sent.length())
+
+    val downloaded = sent.getJSONObject(0)
+    assertEquals(queued[0].eventId, downloaded.getString("event_id"))
+    assertEquals("downloaded", downloaded.getString("type"))
+    assertEquals(releaseId, downloaded.getString("release_id"))
+    assertFalse(downloaded.has("reason"))
+    assertEquals("1970-01-01T02:46:40.000Z", downloaded.getString("occurred_at"))
+
+    val rejected = sent.getJSONObject(1)
+    assertEquals(queued[1].eventId, rejected.getString("event_id"))
+    assertEquals("verification_failed", rejected.getString("type"))
+    assertEquals(otherRelease, rejected.getString("release_id"))
+    assertEquals("signature", rejected.getString("reason"))
+    assertEquals("1970-01-01T02:46:40.001Z", rejected.getString("occurred_at"))
+
+    val missing = sent.getJSONObject(2)
+    assertEquals("integration_missing", missing.getString("type"))
+    assertFalse(missing.has("release_id"))
+    assertFalse(missing.has("reason"))
+    assertTrue(events.read().isEmpty())
+  }
+
+  @Test
+  fun aDownloadedReleaseIsFlushedWithItsReleaseId() {
+    checkResponse = offer()
+    val updater = updater()
+    updater.check()
+    updater.flushEvents()
+
+    val batch = JSONObject(requests.single { it.path!!.endsWith("/ota/events") }.body.readUtf8())
+    val event = batch.getJSONArray("events").getJSONObject(0)
+    assertEquals("downloaded", event.getString("type"))
+    assertEquals(releaseId, event.getString("release_id"))
+    assertEquals(store.load()!!.installationId, batch.getString("installation_id"))
+    assertEquals("android", batch.getString("platform"))
   }
 
   @Test

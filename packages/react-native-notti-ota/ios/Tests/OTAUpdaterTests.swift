@@ -148,7 +148,7 @@ final class OTAUpdaterTests: TempDirTestCase {
 
   private func load() -> OTAState { try! store.load()! }
 
-  private func eventTypes() -> [String] { events.read().map { "\($0.type):\($0.reason ?? "")" } }
+  private func eventTypes() -> [String] { events.read().map { "\($0.type):\($0.reason ?? "")@\($0.releaseId ?? "")" } }
 
   private func tmpIsEmpty() -> Bool { ((try? FileManager.default.contentsOfDirectory(atPath: store.tmpDir.path)) ?? []).isEmpty }
 
@@ -165,7 +165,7 @@ final class OTAUpdaterTests: TempDirTestCase {
     XCTAssertEqual(state.pending, ReleasePointer(releaseId: releaseId, bundle: "index.android.bundle", mandatory: true))
     XCTAssertTrue(exists(store.bundleFile(state.pending!)))
     XCTAssertEqual(state.lastCheckAt, now)
-    XCTAssertEqual(eventTypes(), ["downloaded:"])
+    XCTAssertEqual(eventTypes(), ["downloaded:@\(releaseId)"])
     XCTAssertTrue(tmpIsEmpty())
     XCTAssertEqual(pendingNotices, [state.pending!])
 
@@ -222,7 +222,7 @@ final class OTAUpdaterTests: TempDirTestCase {
     archiveReply = { .partial(Fixtures.data("archives/valid.tar.gz").prefix(100), total: 241) }
     updater().check()
     XCTAssertNil(load().pending)
-    XCTAssertEqual(eventTypes(), ["download_failed:network"])
+    XCTAssertEqual(eventTypes(), ["download_failed:network@\(releaseId)"])
     XCTAssertTrue(tmpIsEmpty())
     XCTAssertFalse(exists(store.releaseDir(releaseId)))
   }
@@ -231,7 +231,7 @@ final class OTAUpdaterTests: TempDirTestCase {
     checkReply = offer()
     archiveReply = { .response(status: 403, body: Data()) }
     updater().check()
-    XCTAssertEqual(eventTypes(), ["download_failed:http_status"])
+    XCTAssertEqual(eventTypes(), ["download_failed:http_status@\(releaseId)"])
     XCTAssertTrue(tmpIsEmpty())
   }
 
@@ -239,7 +239,7 @@ final class OTAUpdaterTests: TempDirTestCase {
     checkReply = offer()
     archiveReply = { .failure(.timedOut) }
     updater().check()
-    XCTAssertEqual(eventTypes(), ["download_failed:timeout"])
+    XCTAssertEqual(eventTypes(), ["download_failed:timeout@\(releaseId)"])
     XCTAssertTrue(tmpIsEmpty())
   }
 
@@ -247,7 +247,7 @@ final class OTAUpdaterTests: TempDirTestCase {
     checkReply = offer()
     freeSpace = 100
     updater().check()
-    XCTAssertEqual(eventTypes(), ["download_failed:no_space"])
+    XCTAssertEqual(eventTypes(), ["download_failed:no_space@\(releaseId)"])
     XCTAssertEqual(StubURLProtocol.count("/archive"), 0)
   }
 
@@ -256,7 +256,7 @@ final class OTAUpdaterTests: TempDirTestCase {
     archiveReply = { .response(status: 200, body: Fixtures.data("archives/tampered.tar.gz")) }
     updater().check()
     XCTAssertNil(load().pending)
-    XCTAssertEqual(eventTypes(), ["verification_failed:hash"])
+    XCTAssertEqual(eventTypes(), ["verification_failed:hash@\(releaseId)"])
     XCTAssertTrue(tmpIsEmpty())
   }
 
@@ -264,7 +264,7 @@ final class OTAUpdaterTests: TempDirTestCase {
     checkReply = offer()
     archiveReply = { .response(status: 200, body: Fixtures.data("archives/valid.tar.gz") + Data(count: 4096)) }
     updater().check()
-    XCTAssertEqual(eventTypes(), ["verification_failed:hash"])
+    XCTAssertEqual(eventTypes(), ["verification_failed:hash@\(releaseId)"])
     XCTAssertTrue(tmpIsEmpty())
   }
 
@@ -276,7 +276,7 @@ final class OTAUpdaterTests: TempDirTestCase {
     )
     checkReply = offer()
     updater().check()
-    XCTAssertEqual(eventTypes(), ["verification_failed:signature"])
+    XCTAssertEqual(eventTypes(), ["verification_failed:signature@\(releaseId)"])
     XCTAssertEqual(StubURLProtocol.count("/archive"), 0)
   }
 
@@ -284,7 +284,7 @@ final class OTAUpdaterTests: TempDirTestCase {
     config = makeConfig(runtimeVersion: "2.0.0")
     checkReply = offer()
     updater().check()
-    XCTAssertEqual(eventTypes(), ["verification_failed:incompatible"])
+    XCTAssertEqual(eventTypes(), ["verification_failed:incompatible@\(releaseId)"])
     XCTAssertEqual(StubURLProtocol.count("/archive"), 0)
   }
 
@@ -339,6 +339,58 @@ final class OTAUpdaterTests: TempDirTestCase {
     XCTAssertEqual(sent.count, 50)
     XCTAssertEqual(Set(sent[0].keys), ["event_id", "type", "release_id", "reason", "occurred_at"])
     XCTAssertEqual(sent[0]["occurred_at"] as? String, "1970-01-01T02:46:40.000Z")
+  }
+
+  func testTheFlushedBatchCarriesEachEventByValue() throws {
+    let queued: [OTAEvent] = [
+      .create(OTAEvent.downloaded, releaseId: releaseId, now: now),
+      .create(OTAEvent.verificationFailed, releaseId: otherRelease, reason: "signature", now: now + 1),
+      .create(OTAEvent.integrationMissing, releaseId: nil, now: now + 2),
+    ]
+    queued.forEach(events.add)
+    updater().flushEvents()
+
+    XCTAssertEqual(StubURLProtocol.count("/ota/events"), 1)
+    let request = try XCTUnwrap(StubURLProtocol.first("/ota/events"))
+    XCTAssertEqual(request.request.url?.absoluteString, "https://notti.test/v1/apps/\(manifest.appId)/ota/events")
+    XCTAssertEqual(request.request.value(forHTTPHeaderField: "Authorization"), "Bearer ck_live")
+    let batch = try XCTUnwrap(JSONSerialization.jsonObject(with: request.body) as? [String: Any])
+    XCTAssertEqual(batch["installation_id"] as? String, load().installationId)
+    XCTAssertEqual(batch["platform"] as? String, "ios")
+    let sent = try XCTUnwrap(batch["events"] as? [[String: Any]])
+    XCTAssertEqual(sent.count, 3)
+
+    XCTAssertEqual(sent[0]["event_id"] as? String, queued[0].eventId)
+    XCTAssertEqual(sent[0]["type"] as? String, "downloaded")
+    XCTAssertEqual(sent[0]["release_id"] as? String, releaseId)
+    XCTAssertNil(sent[0]["reason"])
+    XCTAssertEqual(sent[0]["occurred_at"] as? String, "1970-01-01T02:46:40.000Z")
+
+    XCTAssertEqual(sent[1]["event_id"] as? String, queued[1].eventId)
+    XCTAssertEqual(sent[1]["type"] as? String, "verification_failed")
+    XCTAssertEqual(sent[1]["release_id"] as? String, otherRelease)
+    XCTAssertEqual(sent[1]["reason"] as? String, "signature")
+    XCTAssertEqual(sent[1]["occurred_at"] as? String, "1970-01-01T02:46:40.001Z")
+
+    XCTAssertEqual(sent[2]["type"] as? String, "integration_missing")
+    XCTAssertNil(sent[2]["release_id"])
+    XCTAssertNil(sent[2]["reason"])
+    XCTAssertTrue(events.read().isEmpty)
+  }
+
+  func testADownloadedReleaseIsFlushedWithItsReleaseId() throws {
+    checkReply = offer()
+    let updater = updater()
+    updater.check()
+    updater.flushEvents()
+
+    let batch = try XCTUnwrap(JSONSerialization.jsonObject(with: StubURLProtocol.first("/ota/events")!.body) as? [String: Any])
+    let sent = try XCTUnwrap(batch["events"] as? [[String: Any]])
+    XCTAssertEqual(sent.count, 1)
+    XCTAssertEqual(sent[0]["type"] as? String, "downloaded")
+    XCTAssertEqual(sent[0]["release_id"] as? String, releaseId)
+    XCTAssertEqual(batch["installation_id"] as? String, load().installationId)
+    XCTAssertEqual(batch["platform"] as? String, "ios")
   }
 
   func testEventsStayQueuedWhenTheServerFails() {

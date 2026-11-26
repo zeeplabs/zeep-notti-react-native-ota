@@ -90,7 +90,7 @@ class OTALaunchMonitorTest {
   ) = OTALaunchMonitor(store, events, decision, scheduler, { scheduler.now }, { loaded }, { checks++ })
     .also { it.bundleRequested = requested }
 
-  private fun eventTypes() = events.read().map { "${it.type}:${it.reason ?: ""}" }
+  private fun eventTypes() = events.read().map { "${it.type}:${it.reason ?: ""}@${it.releaseId ?: ""}" }
 
   @Test
   fun aPendingReleaseIsSelectedAtBoot() {
@@ -111,7 +111,7 @@ class OTALaunchMonitorTest {
     assertNull(decision.selected)
     assertFalse(decision.state.revertToEmbedded)
     assertFalse(store.releaseDir(releaseA).exists())
-    assertEquals(listOf("reverted_to_embedded:server"), eventTypes())
+    assertEquals(listOf("reverted_to_embedded:server@$releaseA"), eventTypes())
   }
 
   @Test
@@ -137,7 +137,7 @@ class OTALaunchMonitorTest {
     assertNull(decision.state.pending)
     assertEquals(listOf(releaseB), decision.state.blocklist)
     assertFalse(store.releaseDir(releaseB).exists())
-    assertEquals(listOf("rolled_back:crash"), eventTypes())
+    assertEquals(listOf("rolled_back:crash@$releaseB"), eventTypes())
   }
 
   @Test
@@ -167,7 +167,7 @@ class OTALaunchMonitorTest {
     setUpStore()
     stateWith(pending = releaseB) { it.copy(attempt = LaunchAttempt(releaseB, 500), failedCount = 1, interruptedCount = 2) }
     boot(PreviousExit.INTERRUPTED)
-    assertEquals(listOf("rolled_back:interrupted"), eventTypes())
+    assertEquals(listOf("rolled_back:interrupted@$releaseB"), eventTypes())
   }
 
   @Test
@@ -196,7 +196,7 @@ class OTALaunchMonitorTest {
     assertNull(state.pending)
     assertNull(state.attempt)
     assertFalse(store.releaseDir(releaseA).exists())
-    assertEquals(listOf("applied:"), eventTypes())
+    assertEquals(listOf("applied:@$releaseB"), eventTypes())
     assertEquals(1, checks)
   }
 
@@ -219,7 +219,7 @@ class OTALaunchMonitorTest {
     second.onForeground()
     scheduler.advance(10_000)
     assertNull(store.load()!!.pending)
-    assertEquals(listOf("rolled_back:watchdog"), eventTypes())
+    assertEquals(listOf("rolled_back:watchdog@$releaseB"), eventTypes())
   }
 
   @Test
@@ -237,7 +237,7 @@ class OTALaunchMonitorTest {
     scheduler.advance(1_000)
     second.onFatal()
     assertNull(store.load()!!.pending)
-    assertEquals(listOf("rolled_back:crash"), eventTypes())
+    assertEquals(listOf("rolled_back:crash@$releaseB"), eventTypes())
   }
 
   @Test
@@ -318,7 +318,7 @@ class OTALaunchMonitorTest {
       scheduler.advance(10_000)
       assertTrue(monitor.disabled)
     }
-    assertEquals(listOf("integration_missing:"), eventTypes())
+    assertEquals(listOf("integration_missing:@"), eventTypes())
     assertEquals(0, checks)
     assertEquals(0, store.load()!!.failedCount)
     assertNotNull(store.load()!!.pending)
@@ -369,7 +369,7 @@ class OTALaunchMonitorTest {
     scheduler.advance(10_000)
 
     assertTrue(monitor.disabled)
-    assertEquals(listOf("bundle_overridden:"), eventTypes())
+    assertEquals(listOf("bundle_overridden:@$releaseB"), eventTypes())
     assertNull(store.load()!!.attempt)
     assertEquals(0, store.load()!!.failedCount)
     assertEquals(0, checks)
