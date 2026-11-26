@@ -8,56 +8,93 @@
 
 Ship JavaScript and asset fixes to your React Native app without a store release. Every update is signed with your own key, verified on the device before it is used, and rolled back automatically if it crashes or hangs on launch.
 
-This repository holds two packages:
+## Features
 
-| Package | What it does |
-| --- | --- |
-| [`react-native-notti-ota`](packages/react-native-notti-ota) | Native core (Android and iOS): picks the bundle at launch, checks for and downloads Live updates, verifies them, and rolls back broken ones. |
-| [`react-native-notti-ota-expo`](packages/react-native-notti-ota-expo) | Expo adapter: connects the core to Expo's supported bundle hooks. Only needed in Expo projects. |
-
-Live updates are published with the Notti CLI (`notti ota release`). They are separate from the Notti push SDK (`react-native-notti`): you can use either one without the other.
+- **Signed updates**: every release is signed with your own key; the device verifies the signature and every file hash before using it.
+- **Automatic rollback**: an update that crashes or hangs on launch is rolled back and blocked on that device.
+- **Applied on the next cold start**: a running session never switches bundles.
+- **Release channels and runtime versions**: target a release at the binaries it is compatible with.
+- **Bare React Native and Expo**: native hooks for bare projects, and an Expo adapter plus config plugin with no `AppDelegate` or `MainApplication` edits.
+- **Crash reporters keep working**: crash handlers are chained and always hand the crash on to the ones installed before them.
 
 ## Requirements
 
-- React Native 0.83 or newer, New Architecture.
+- React Native 0.83 or newer, New Architecture, Hermes.
 - Expo SDK 55 or newer (Expo projects). `expo-updates` must not be installed: it takes over the same bundle hook.
 - Android 7.0 (API 24) or newer. iOS 15.1 or newer.
+- A Notti App (App ID and client key) and a plan or license that includes Live updates.
 
 ## Status
 
 Beta (0.x). The API may change between minor versions. Both packages are released together with the same version number.
 
-## Repository layout
+## Quick start
 
-| Path | Contents |
+**1. Install the SDK.**
+
+```sh
+# Bare React Native
+npm install react-native-notti-ota
+cd ios && pod install
+
+# Expo (also remove expo-updates if you have it)
+npx expo install react-native-notti-ota react-native-notti-ota-expo
+```
+
+**2. Create a signing key** with the [Notti CLI](https://github.com/zeeplabs/zeep-notti-cli) (`@notti/cli`), and register the printed public key in the Notti dashboard.
+
+```sh
+npm install --save-dev @notti/cli
+npx notti ota keys generate --out notti-live-updates.private.pem
+```
+
+**3. Configure the app.** In Expo, add the config plugin to `app.json`:
+
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "react-native-notti-ota",
+        {
+          "appId": "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+          "baseUrl": "https://app.zeepnotti.app",
+          "clientKey": "your-client-key",
+          "channel": "production",
+          "runtimeVersion": "1.4.0",
+          "publicKeys": ["-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"]
+        }
+      ]
+    ]
+  }
+}
+```
+
+Bare projects set the same values in `Info.plist` and `AndroidManifest.xml` and add one bundle hook per platform; see the [core package README](https://github.com/zeeplabs/zeep-notti-react-native-ota/tree/main/packages/react-native-notti-ota#readme). Self-hosted Notti: use your own `baseUrl`.
+
+**4. Build and install a Release binary.** Live updates only act in Release builds; debug builds always load from Metro.
+
+**5. Publish an update.** Change some JavaScript, then run once per platform from the project root:
+
+```sh
+export NOTTI_API_KEY=...          # the App REST key
+export NOTTI_APP_ID=...           # the App ID
+export NOTTI_OTA_PRIVATE_KEY=./notti-live-updates.private.pem
+
+npx notti ota release --platform android --runtime-version 1.4.0 --channel production
+npx notti ota release --platform ios --runtime-version 1.4.0 --channel production
+```
+
+`--runtime-version` and `--channel` must match the binary. Open the app, close it and open it again: the update is downloaded in the background and loaded on the next cold start.
+
+## Packages
+
+| Package | What it does |
 | --- | --- |
-| `packages/react-native-notti-ota` | Core package (Kotlin, Swift, TypeScript) |
-| `packages/react-native-notti-ota-expo` | Expo adapter (Kotlin, Swift) |
-| `example-bare-083`, `example-bare-088` | Bare React Native apps at the oldest and newest supported versions |
-| `example-expo-55`, `example-expo-58` | Expo apps at the oldest and newest supported SDKs |
-| `fixtures/ota` | Signed manifest and archives produced by the Notti CLI, shared by the Android and iOS tests |
-| `docs/spikes.md` | Results of the integration spikes |
+| [`react-native-notti-ota`](https://github.com/zeeplabs/zeep-notti-react-native-ota/tree/main/packages/react-native-notti-ota#readme) | Native core (Android and iOS): picks the bundle at launch, checks for and downloads Live updates, verifies them, and rolls back broken ones. Includes the Expo config plugin. |
+| [`react-native-notti-ota-expo`](https://github.com/zeeplabs/zeep-notti-react-native-ota/tree/main/packages/react-native-notti-ota-expo#readme) | Expo adapter: connects the core to Expo's supported bundle hooks. Only needed in Expo projects. |
 
-## Development
-
-Use Node 22 and pnpm.
-
-```sh
-pnpm install
-pnpm typecheck && pnpm lint && pnpm test
-pnpm build   # lib/ (react-native-builder-bob) and the Expo config plugin
-```
-
-The packages publish pre-compiled output (`lib/`); the example apps resolve them through `main`, so run `pnpm build` at the root before building or bundling an example.
-
-Each example app is a standalone project linked to the packages:
-
-```sh
-cd example-bare-083 && pnpm install --ignore-workspace
-cd android && ./gradlew :react-native-notti-ota:testDebugUnitTest
-```
-
-`scripts/ci-local.sh` runs the same commands as CI.
+Live updates are published with the Notti CLI (`notti ota release`). They are separate from the Notti push SDK ([`react-native-notti`](https://github.com/zeeplabs/zeep-notti-react-native)): you can use either one without the other.
 
 ## Clean-room rule
 
@@ -65,7 +102,7 @@ No code from CodePush, hot-updater, expo-updates or Revopush may be copied, adap
 
 ## Contributing
 
-Contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) and the [code of conduct](./CODE_OF_CONDUCT.md) first.
+Contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) and the [code of conduct](./CODE_OF_CONDUCT.md) first. The repository layout, local development, native tests and the release process are described there and in [RELEASING.md](./RELEASING.md).
 
 ## Security
 

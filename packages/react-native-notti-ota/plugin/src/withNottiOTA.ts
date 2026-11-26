@@ -12,7 +12,7 @@ import {
 export type NottiOTAPluginProps = {
   /** Notti App ID (UUID). */
   appId: string;
-  /** Notti API base URL, for example `https://api.notti.app`. */
+  /** Notti API base URL, for example `https://app.zeepnotti.app`. */
   baseUrl: string;
   /** The App's client key (public, device-restricted). */
   clientKey: string;
