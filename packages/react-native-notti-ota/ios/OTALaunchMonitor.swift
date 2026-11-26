@@ -86,6 +86,10 @@ enum OTABoot {
       }
     }
 
+    if let pending = state.pending, state.blocklist.contains(pending.releaseId) {
+      state.pending = nil
+      state.attempt = nil
+    }
     if let pending = state.pending, !isFile(store.bundleFile(pending)) {
       state.pending = nil
       state.attempt = nil

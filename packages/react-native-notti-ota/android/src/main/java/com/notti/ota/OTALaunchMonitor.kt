@@ -112,6 +112,7 @@ internal object OTABoot {
       }
     }
 
+    if (state.pending?.releaseId in state.blocklist) state = state.copy(pending = null, attempt = null)
     if (state.pending != null && !store.bundleFile(state.pending!!).isFile) state = state.copy(pending = null, attempt = null)
     if (state.stable != null && !store.bundleFile(state.stable!!).isFile) state = state.copy(stable = null)
 

@@ -207,6 +207,22 @@ final class OTALaunchMonitorTests: TempDirTestCase {
     XCTAssertEqual(load().blocklist, [releaseB])
   }
 
+  func testABlocklistedPendingReleaseIsNeverAppliedAtBoot() throws {
+    try stateWith(stable: releaseA, pending: releaseB) { $0 = $0.blocking(releaseB) }
+
+    let decision = boot()
+
+    XCTAssertEqual(decision.selected?.releaseId, releaseA)
+    XCTAssertNil(decision.state.pending)
+    XCTAssertFalse(exists(store.releaseDir(releaseB)))
+    XCTAssertEqual(decision.state.blocklist, [releaseB])
+  }
+
+  func testABlocklistedPendingReleaseWithoutStableBootsEmbedded() throws {
+    try stateWith(pending: releaseB) { $0 = $0.blocking(releaseB) }
+    XCTAssertNil(boot().selected)
+  }
+
   func testAMissingPendingBundleIsDropped() throws {
     try stateWith(stable: releaseA, pending: releaseB)
     try FileManager.default.removeItem(at: store.releaseDir(releaseB))

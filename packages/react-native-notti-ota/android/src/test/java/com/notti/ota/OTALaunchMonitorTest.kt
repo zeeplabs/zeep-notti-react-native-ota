@@ -171,6 +171,27 @@ class OTALaunchMonitorTest {
   }
 
   @Test
+  fun aBlocklistedPendingReleaseIsNeverAppliedAtBoot() {
+    setUpStore()
+    stateWith(stable = releaseA, pending = releaseB) { it.blocking(releaseB) }
+
+    val decision = boot()
+
+    assertEquals(releaseA, decision.selected?.releaseId)
+    assertFalse(decision.selectedIsPending)
+    assertNull(decision.state.pending)
+    assertFalse(store.releaseDir(releaseB).exists())
+    assertEquals(listOf(releaseB), decision.state.blocklist)
+  }
+
+  @Test
+  fun aBlocklistedPendingReleaseWithoutStableBootsEmbedded() {
+    setUpStore()
+    stateWith(pending = releaseB) { it.blocking(releaseB) }
+    assertNull(boot().selected)
+  }
+
+  @Test
   fun aMissingPendingBundleIsDropped() {
     setUpStore()
     stateWith(stable = releaseA, pending = releaseB)
