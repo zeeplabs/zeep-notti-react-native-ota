@@ -7,7 +7,7 @@
     "ios": "react-native run-ios",
     "start": "react-native start",
     "build:android": "cd android && ./gradlew assembleRelease --console=plain",
-    "build:ios": "react-native build-ios --mode Release"
+    "build:ios": "bundle install && bundle exec pod install --project-directory=ios && cd ios && xcodebuild -workspace *.xcworkspace -scheme $(basename *.xcworkspace .xcworkspace) -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO build"
   },
   "dependencies": {
     "react": "19.2.0",
