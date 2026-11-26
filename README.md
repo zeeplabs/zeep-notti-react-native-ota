@@ -19,7 +19,7 @@ Live updates are published with the Notti CLI (`notti ota release`). They are se
 
 ## Status
 
-Under development. Not published to npm yet.
+Beta (0.x). The API may change between minor versions. Both packages are released together with the same version number.
 
 ## Repository layout
 

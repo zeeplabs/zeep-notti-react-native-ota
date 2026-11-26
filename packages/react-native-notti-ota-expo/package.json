@@ -18,7 +18,9 @@
   "keywords": [
     "react-native",
     "expo",
-    "live-updates"
+    "live-updates",
+    "ota",
+    "notti"
   ],
   "repository": {
     "type": "git",
@@ -29,9 +31,17 @@
   "license": "MIT",
   "peerDependencies": {
     "expo": ">=55.0.0",
-    "react-native-notti-ota": "*"
+    "react-native-notti-ota": "^0.1.0"
   },
   "devDependencies": {
     "react-native-notti-ota": "workspace:*"
+  },
+  "homepage": "https://github.com/zeeplabs/zeep-notti-react-native-ota/tree/main/packages/react-native-notti-ota-expo#readme",
+  "bugs": {
+    "url": "https://github.com/zeeplabs/zeep-notti-react-native-ota/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   }
 }

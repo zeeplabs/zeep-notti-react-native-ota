@@ -1,6 +1,6 @@
 {
   "name": "zeep-notti-react-native-ota-monorepo",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Notti Live updates for React Native: native core and Expo adapter",
   "scripts": {
@@ -8,7 +8,10 @@
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest",
     "ci:local": "bash scripts/ci-local.sh",
-    "build:plugin": "pnpm --filter react-native-notti-ota build:plugin"
+    "build:plugin": "pnpm --filter react-native-notti-ota build:plugin",
+    "release": "release-it --only-version",
+    "sync-versions": "node scripts/sync-versions.js",
+    "pack:packages": "node scripts/pack-packages.js"
   },
   "repository": {
     "type": "git",
@@ -24,6 +27,7 @@
     "@jest/globals": "^29.7.0",
     "@react-native/babel-preset": "0.83.10",
     "@react-native/eslint-config": "0.83.10",
+    "@release-it/conventional-changelog": "^11.0.1",
     "@types/jest": "^29.5.14",
     "@types/react": "^19.1.1",
     "commitlint": "^21.0.2",
@@ -35,6 +39,7 @@
     "prettier": "^3.8.3",
     "react": "19.2.0",
     "react-native": "0.83.10",
+    "release-it": "^20.2.0",
     "typescript": "~5.9.3"
   },
   "packageManager": "pnpm@10.15.0",
@@ -62,5 +67,32 @@
     "extends": [
       "@commitlint/config-conventional"
     ]
+  },
+  "homepage": "https://github.com/zeeplabs/zeep-notti-react-native-ota#readme",
+  "bugs": {
+    "url": "https://github.com/zeeplabs/zeep-notti-react-native-ota/issues"
+  },
+  "release-it": {
+    "git": {
+      "commitMessage": "chore: release ${version}",
+      "tagName": "v${version}"
+    },
+    "npm": {
+      "publish": false
+    },
+    "github": {
+      "release": false
+    },
+    "hooks": {
+      "after:bump": "node scripts/sync-versions.js"
+    },
+    "plugins": {
+      "@release-it/conventional-changelog": {
+        "infile": "CHANGELOG.md",
+        "preset": {
+          "name": "angular"
+        }
+      }
+    }
   }
 }
