@@ -12,6 +12,8 @@
     "*.podspec",
     "app.plugin.js",
     "plugin/build",
+    "!ios/generated",
+    "!android/generated",
     "!ios/build",
     "!ios/Tests",
     "!android/build",
@@ -23,7 +25,9 @@
     "react-native",
     "ios",
     "android",
-    "live-updates"
+    "live-updates",
+    "ota",
+    "notti"
   ],
   "repository": {
     "type": "git",
@@ -56,5 +60,13 @@
     "@expo/config-plugins": {
       "optional": true
     }
+  },
+  "homepage": "https://github.com/zeeplabs/zeep-notti-react-native-ota/tree/main/packages/react-native-notti-ota#readme",
+  "bugs": {
+    "url": "https://github.com/zeeplabs/zeep-notti-react-native-ota/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   }
 }

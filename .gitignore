@@ -41,3 +41,4 @@ android/generated
 
 *.tgz
 .turbo/
+.pack/

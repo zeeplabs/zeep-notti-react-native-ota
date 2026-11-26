@@ -1,0 +1,125 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+# Lockstep release: one tag `vX.Y.Z` publishes both packages at the same
+# version, the core (react-native-notti-ota) first and then the Expo adapter
+# (react-native-notti-ota-expo), which depends on it.
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup
+        uses: ./.github/actions/setup
+
+      # Trusted publishing (OIDC) needs npm CLI >= 11.5.1 to mint the
+      # short-lived token. The npm bundled with Node 22 (.nvmrc) is 10.x, so
+      # the publish job switches to Node 24, whose bundled npm satisfies this.
+      # Don't `npm install -g npm@latest`: it can resolve to an npm major
+      # that needs a newer Node than the one in use and fail with EBADENGINE.
+      - name: Setup npm registry
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Check npm version supports trusted publishing
+        run: |
+          NPM_VERSION=$(npm --version)
+          node -e "
+            const [major, minor, patch] = '$NPM_VERSION'.split('.').map(Number);
+            if (major < 11 || (major === 11 && minor < 5) || (major === 11 && minor === 5 && patch < 1)) {
+              console.error('npm $NPM_VERSION does not support trusted publishing (need >= 11.5.1)');
+              process.exit(1);
+            }
+          "
+
+      - name: Verify tag matches the package versions
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          for PKG in package.json packages/react-native-notti-ota/package.json packages/react-native-notti-ota-expo/package.json; do
+            PKG_VERSION=$(node -p "require('./$PKG').version")
+            if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+              echo "Tag $GITHUB_REF_NAME does not match $PKG version $PKG_VERSION"
+              exit 1
+            fi
+          done
+          node scripts/sync-versions.js --check
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build the Expo config plugin
+        run: pnpm build:plugin
+
+      # `pnpm pack` rewrites the adapter's `workspace:` specifiers into real
+      # versions (npm would publish them as-is); the script then fails the job
+      # if any workspace:/link:/file: specifier is left in a tarball.
+      - name: Pack the packages
+        run: node scripts/pack-packages.js "$RUNNER_TEMP/packs"
+
+      # No NPM_TOKEN: both packages must have a Trusted Publisher configured
+      # on npmjs.com (Package settings -> Trusted Publisher) pointing at this
+      # repo + this workflow file (release.yml). Trusted publishing can only
+      # be attached to a package that already exists on the registry - the
+      # very first publish of each package is done manually from a
+      # maintainer's terminal (see RELEASING.md), after which this job
+      # handles every release. A version that is already on npm is skipped,
+      # so the tag of a hand-published first release (or a re-run after a
+      # partial failure) does not fail on a duplicate publish.
+      - name: Publish to npm
+        run: |
+          publish() {
+            NAME=$1
+            VERSION="${GITHUB_REF_NAME#v}"
+            if npm view "$NAME@$VERSION" version > /dev/null 2>&1; then
+              echo "$NAME@$VERSION is already on npm, skipping"
+            else
+              npm publish "$RUNNER_TEMP/packs/$NAME-$VERSION.tgz" --access public
+            fi
+          }
+          # Order matters: the adapter depends on the core.
+          publish react-native-notti-ota
+          publish react-native-notti-ota-expo
+
+  release:
+    name: Create GitHub Release
+    needs: publish
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Extract release notes from CHANGELOG.md
+        id: changelog
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            echo 'body<<CHANGELOG_EOF'
+            node scripts/extract-changelog-section.js "$VERSION"
+            echo 'CHANGELOG_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          name: ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.body }}
