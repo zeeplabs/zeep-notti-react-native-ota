@@ -1,8 +1,39 @@
 # react-native-notti-ota
 
+[![npm version](https://img.shields.io/npm/v/react-native-notti-ota.svg)](https://www.npmjs.com/package/react-native-notti-ota)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/zeeplabs/zeep-notti-react-native-ota/blob/main/LICENSE)
+![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20iOS-lightgrey.svg)
+![Status: Beta](https://img.shields.io/badge/status-beta-orange.svg)
+
 Notti Live updates for React Native: ship JavaScript and asset fixes without a store release. Every update is signed with your own key, verified on the device before it is used, and rolled back automatically if it crashes or hangs on launch.
 
-Requirements: React Native 0.83 or newer (New Architecture), iOS 15.1+, Android 7.0 (API 24)+. Releases are published with the Notti CLI (`notti ota release`).
+> **Beta (0.x).** The API may change between minor versions. `react-native-notti-ota` and `react-native-notti-ota-expo` are released together with the same version number.
+
+## Requirements
+
+- React Native 0.83 or newer (New Architecture), or Expo SDK 55 or newer (prebuild or a development build, not Expo Go).
+- iOS 15.1+, Android 7.0 (API 24)+.
+- `expo-updates` must not be installed: both load the app bundle.
+- A Notti App (App ID and client key) and a signing key. Releases are published with the [Notti CLI](https://github.com/zeeplabs/zeep-notti-cli) (`@notti/cli`: `notti ota keys generate`, `notti ota release`).
+
+## Installation
+
+Bare React Native:
+
+```sh
+npm install react-native-notti-ota
+# or: yarn add react-native-notti-ota
+# or: pnpm add react-native-notti-ota
+cd ios && pod install
+```
+
+Expo (also install the adapter, and remove `expo-updates` if you have it):
+
+```sh
+npx expo install react-native-notti-ota react-native-notti-ota-expo
+```
+
+Then configure the app (next sections). Live updates only act in Release builds.
 
 ## How it works
 
@@ -147,3 +178,21 @@ subscription.remove();
 ## Xcode 27 and the scene life cycle
 
 Apps built with Xcode 27 (iOS 27 SDK) must adopt the `UIScene` life cycle, or UIKit stops them at launch, before React Native starts. React Native 0.88+ and Expo SDK 56+ templates already use a `SceneDelegate`. If your app was created from an older template (React Native 0.83 to 0.87, Expo SDK 55), adopt `UIScene` before building with Xcode 27, or move to a newer template.
+
+## Related
+
+- [Notti CLI](https://github.com/zeeplabs/zeep-notti-cli) (`@notti/cli`): creates signing keys and publishes releases.
+- [`react-native-notti-ota-expo`](https://www.npmjs.com/package/react-native-notti-ota-expo): Expo adapter, needed only in Expo projects.
+- [`react-native-notti`](https://github.com/zeeplabs/zeep-notti-react-native): Notti push SDK. Independent of Live updates: use either one without the other.
+
+## Contributing
+
+Contributions are welcome: see [CONTRIBUTING.md](https://github.com/zeeplabs/zeep-notti-react-native-ota/blob/main/CONTRIBUTING.md) and the [code of conduct](https://github.com/zeeplabs/zeep-notti-react-native-ota/blob/main/CODE_OF_CONDUCT.md).
+
+## Security
+
+Do not report vulnerabilities in public issues: see [SECURITY.md](https://github.com/zeeplabs/zeep-notti-react-native-ota/blob/main/SECURITY.md).
+
+## License
+
+MIT, see [LICENSE](https://github.com/zeeplabs/zeep-notti-react-native-ota/blob/main/LICENSE).
