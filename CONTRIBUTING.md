@@ -23,6 +23,12 @@ pnpm install
 
 > Since the project relies on pnpm workspaces, don't use `npm`/`yarn` for development.
 
+The packages publish pre-compiled output (`lib/`, built with react-native-builder-bob, plus the Expo config plugin). The example apps resolve the packages through `main`, so run `pnpm build` at the root before building or bundling an example.
+
+```sh
+pnpm build
+```
+
 The example apps are standalone projects (not part of the workspace) that link the local packages, so install each one you want to run with `--ignore-workspace`:
 
 ```sh
