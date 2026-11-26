@@ -460,6 +460,11 @@ final class OTALaunchMonitorTests: TempDirTestCase {
   }
 }
 
+private final class ReloadSpy: NSObject, RCTReloadListener {
+  var count = 0
+  func didReceiveReloadCommand() { count += 1 }
+}
+
 final class NottiOTAEntryTests: TempDirTestCase {
   private let releaseId = "1e2d3c4b-5a69-4788-9a0b-1c2d3e4f5a6b"
   private var root: URL { tmp.appendingPathComponent("NottiOTA", isDirectory: true) }
@@ -546,6 +551,54 @@ final class NottiOTAEntryTests: TempDirTestCase {
     NottiOTA.releaseReady(pointer)
     XCTAssertEqual(received.map(\.0), [releaseId])
     XCTAssertEqual(received.map(\.1), [true])
+  }
+
+  func testTheTurboModuleEmitsOtaUpdateReadyAndNeverReloads() throws {
+    let readyRelease = "7d4f8a2e-1b3c-4e5f-9a6b-0c1d2e3f4a5b"
+    let store = OTAStateStore(root: root)
+    var state = try store.open(binaryIdentity: "1|1.0|uuid")
+    state.stable = ReleasePointer(releaseId: releaseId, bundle: "main.jsbundle")
+    try store.save(state)
+    write("x", to: store.bundleFile(state.stable!))
+    prepare()
+    let running = try XCTUnwrap(NottiOTA.selectBundle())
+
+    // The codegen base needs a C++ callback from the TurboModule host: swap its two methods for recorders.
+    let moduleClass: AnyClass = try XCTUnwrap(NSClassFromString("NottiOta"))
+    let specBase: AnyClass = try XCTUnwrap(class_getSuperclass(moduleClass))
+    let setterSelector = NSSelectorFromString("setEventEmitterCallback:")
+    let setter = try XCTUnwrap(class_getInstanceMethod(specBase, setterSelector))
+    let emit = try XCTUnwrap(class_getInstanceMethod(specBase, NSSelectorFromString("emitOtaUpdateReady:")))
+    let originalSetter = method_getImplementation(setter)
+    let originalEmit = method_getImplementation(emit)
+    defer {
+      method_setImplementation(setter, originalSetter)
+      method_setImplementation(emit, originalEmit)
+    }
+    var emitted: [NSDictionary] = []
+    let ignore: @convention(block) (AnyObject, AnyObject?) -> Void = { _, _ in }
+    let record: @convention(block) (AnyObject, NSDictionary) -> Void = { _, value in emitted.append(value) }
+    method_setImplementation(setter, imp_implementationWithBlock(ignore))
+    method_setImplementation(emit, imp_implementationWithBlock(record))
+
+    let module = try XCTUnwrap(moduleClass as? NSObject.Type).init()
+    module.perform(setterSelector, with: nil)
+    let reloads = ReloadSpy()
+    RCTRegisterReloadCommandListener(reloads)
+
+    NottiOTA.releaseReady(ReleasePointer(releaseId: readyRelease, bundle: "main.jsbundle", mandatory: true))
+    NottiOTA.releaseReady(ReleasePointer(releaseId: releaseId, bundle: "main.jsbundle", mandatory: false))
+
+    XCTAssertEqual(emitted.count, 2)
+    XCTAssertEqual(Set(emitted[0].allKeys.compactMap { $0 as? String }), ["releaseId", "mandatory"])
+    XCTAssertEqual(emitted[0]["releaseId"] as? String, readyRelease)
+    XCTAssertEqual(emitted[0]["mandatory"] as? Bool, true)
+    XCTAssertEqual(emitted[1]["releaseId"] as? String, releaseId)
+    XCTAssertEqual(emitted[1]["mandatory"] as? Bool, false)
+    XCTAssertEqual(reloads.count, 0, "a ready release never reloads the bridge")
+    XCTAssertEqual(NottiOTA.currentReleaseId(), releaseId)
+    XCTAssertEqual(NottiOTA.selectBundle(), running)
+    withExtendedLifetime(module) {}
   }
 
   func testTheBundleURLIsNilInDebugBuilds() {

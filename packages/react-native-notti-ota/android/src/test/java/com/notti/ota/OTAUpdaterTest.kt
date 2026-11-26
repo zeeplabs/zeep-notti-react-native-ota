@@ -19,6 +19,11 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
+import java.math.BigInteger
+import java.security.KeyPairGenerator
+import java.security.Signature
+import java.security.interfaces.ECPublicKey
+import java.security.spec.ECGenParameterSpec
 import java.util.Base64
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
@@ -80,16 +85,22 @@ class OTAUpdaterTest {
     executor = { it.run() }, clock = { now }, freeSpace = { freeSpace }, onPending = { pendingNotices += it }
   )
 
-  private fun offer(id: String = releaseId, mandatory: Boolean = false) = {
+  private fun offer(
+    id: String = releaseId,
+    mandatory: Boolean = false,
+    manifest: ByteArray = manifestBytes,
+    signature: ByteArray = Fixtures.bytes("manifest.sig"),
+    keyId: String = Fixtures.keyId
+  ) = {
     MockResponse().setBody(
       JSONObject()
         .put(
           "update",
           JSONObject()
             .put("release_id", id)
-            .put("manifest", Base64.getEncoder().encodeToString(manifestBytes))
-            .put("signature", Base64.getEncoder().encodeToString(Fixtures.bytes("manifest.sig")))
-            .put("key_id", Fixtures.keyId)
+            .put("manifest", Base64.getEncoder().encodeToString(manifest))
+            .put("signature", Base64.getEncoder().encodeToString(signature))
+            .put("key_id", keyId)
             .put("download_url", server.url("/archive?X-Amz-Signature=abc").toString())
             .put("expires_at", "2026-11-25T12:15:00Z")
             .put("mandatory", mandatory)
@@ -223,6 +234,28 @@ class OTAUpdaterTest {
     updater().check()
     assertEquals(listOf("verification_failed:incompatible@$releaseId"), eventTypes())
     assertEquals(0, requests.count { it.path!!.startsWith("/archive") })
+  }
+
+  @Test
+  fun aReleaseForAnotherPlatformIsRejectedBeforeDownloading() {
+    val iosManifest = String(manifestBytes, Charsets.UTF_8)
+      .replace("\"platform\":\"android\"", "\"platform\":\"ios\"").toByteArray(Charsets.UTF_8)
+    assertFalse(iosManifest.contentEquals(manifestBytes))
+    val pair = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }.generateKeyPair()
+    val point = (pair.public as ECPublicKey).w
+    fun fixed(n: BigInteger) = n.toByteArray().takeLast(32).toByteArray().let { ByteArray(32 - it.size) + it }
+    val sec1 = byteArrayOf(0x04) + fixed(point.affineX) + fixed(point.affineY)
+    val signature = Signature.getInstance("SHA256withECDSA").run { initSign(pair.private); update(iosManifest); sign() }
+    val keyId = OTAKeys.keyId(sec1)
+    config = config.copy(publicKeys = mapOf(keyId to sec1))
+    checkResponse = offer(manifest = iosManifest, signature = signature, keyId = keyId)
+
+    updater().check()
+
+    assertEquals(listOf("verification_failed:incompatible@$releaseId"), eventTypes())
+    assertNull(store.load()!!.pending)
+    assertEquals(0, requests.count { it.path!!.startsWith("/archive") })
+    assertTrue(pendingNotices.isEmpty())
   }
 
   @Test

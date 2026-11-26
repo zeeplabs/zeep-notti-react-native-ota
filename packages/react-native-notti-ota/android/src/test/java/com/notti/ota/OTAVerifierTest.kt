@@ -160,6 +160,17 @@ class OTAVerifierTest {
   }
 
   @Test
+  fun aReleaseForAnotherPlatformIsIncompatible() {
+    for (platform in listOf("ios", "web", "")) {
+      val other = OTAManifest(
+        manifest.raw, manifest.releaseId, manifest.appId, platform, manifest.channels, manifest.runtimeVersion,
+        manifest.hermesBytecodeVersion, manifest.bundle, manifest.archiveSha256, manifest.archiveSize, manifest.files
+      )
+      expectReason(OTAVerificationException.INCOMPATIBLE) { OTAVerifier.checkCompatible(other, config, 96) }
+    }
+  }
+
+  @Test
   fun aMalformedManifestIsAnInvalidArchive() {
     expectReason(OTAVerificationException.INVALID_ARCHIVE) { OTAManifest.parse("{}".toByteArray()) }
     val unsafe = String(manifestBytes).replace("\"path\":\"assets/fonts/inter.ttf\"", "\"path\":\"../inter.ttf\"")
