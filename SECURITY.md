@@ -1,0 +1,46 @@
+# Security Policy
+
+## Supported Versions
+
+This project has not yet reached a `1.0.0` release. Until then, only the
+latest published version receives security fixes.
+
+| Version   | Supported |
+| --------- | --------- |
+| `0.x` (latest) | ✅ |
+| `< latest`     | ❌ |
+
+Both packages (`react-native-notti-ota` and `react-native-notti-ota-expo`) are
+released together with the same version number.
+
+## Reporting a Vulnerability
+
+**Do not open a public GitHub issue for security vulnerabilities.**
+
+Report privately instead, using one of:
+
+- GitHub's [private vulnerability reporting](https://github.com/zeeplabs/zeep-notti-react-native-ota/security/advisories/new) for this repository (preferred).
+- Email: **opensource@zeeptecnologia.com.br**
+
+Include, as applicable:
+
+- A description of the vulnerability and its impact.
+- Steps to reproduce (a minimal repro project or code snippet helps a lot).
+- The library version, React Native (and Expo SDK, if any) version, and platform(s) affected.
+
+Do not include real signing keys, client keys, tokens or user data in a report.
+
+You should expect an initial response within **5 business days**. We'll work
+with you to confirm the issue, prepare a fix, and coordinate disclosure timing
+before any public write-up. Credit is given in the release notes unless you
+ask to stay anonymous.
+
+## Scope
+
+This policy covers the `react-native-notti-ota` and `react-native-notti-ota-expo`
+packages themselves: the JS facade, the Kotlin and Swift native code, and the
+Expo config plugin. That includes the Live update verification (signature and
+file hash checks), bundle selection and rollback code. The example apps and
+test fixtures are covered only insofar as they affect the packages' published
+output. Vulnerabilities in the Notti backend itself should be reported against
+the [zeep-notti](https://github.com/zeeplabs/zeep-notti) repository instead.

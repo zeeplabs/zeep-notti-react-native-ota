@@ -1,5 +1,11 @@
 # Notti Live updates for React Native
 
+[![CI](https://github.com/zeeplabs/zeep-notti-react-native-ota/actions/workflows/ci.yml/badge.svg)](https://github.com/zeeplabs/zeep-notti-react-native-ota/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/react-native-notti-ota.svg)](https://www.npmjs.com/package/react-native-notti-ota)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+![Platforms](https://img.shields.io/badge/platform-Android%20%7C%20iOS-lightgrey.svg)
+
 Ship JavaScript and asset fixes to your React Native app without a store release. Every update is signed with your own key, verified on the device before it is used, and rolled back automatically if it crashes or hangs on launch.
 
 This repository holds two packages:
@@ -54,6 +60,14 @@ cd android && ./gradlew :react-native-notti-ota:testDebugUnitTest
 
 No code from CodePush, hot-updater, expo-updates or Revopush may be copied, adapted or added as a dependency, in any package, example or test. Their public documentation may be read to understand behaviour; the implementation here is written from the Notti specification and from the public APIs of React Native, Expo, Android and iOS only. Pull requests that bring in such code are rejected.
 
+## Contributing
+
+Contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) and the [code of conduct](./CODE_OF_CONDUCT.md) first.
+
+## Security
+
+Do not report vulnerabilities in public issues. See [SECURITY.md](./SECURITY.md).
+
 ## License
 
-MIT
+MIT, see [LICENSE](./LICENSE).
