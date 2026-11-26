@@ -1,15 +1,15 @@
 name: E2E
 # Live updates end-to-end matrix (e2e/run.sh + Maestro) against a local Notti
-# stack (e2e/stack). Nightly and on pull requests to main.
+# stack (e2e/stack). Nightly and on manual dispatch only: it is not a
+# pull request check (it needs private-repo secrets and a Docker runner).
 #
 # Needs: the NOTTI_SERVER_REPO_TOKEN secret (read access to zeeplabs/zeep-notti
 # and zeeplabs/zeep-notti-cli, which are private). The iOS jobs need a
 # self-hosted macOS runner with Docker (label `macos-docker`): hosted macOS
-# runners have no Docker for the stack.
+# runners have no Docker for the stack. The iOS jobs only run when the
+# repository variable E2E_IOS_ENABLED is 'true', so they never sit queued
+# waiting for a runner that does not exist.
 on:
-  pull_request:
-    branches:
-      - main
   schedule:
     - cron: '0 5 * * *'
   workflow_dispatch:
@@ -84,12 +84,13 @@ jobs:
       - name: Fail on a failed flow
         run: "! grep -P '\\tFAIL\\t' e2e/results/${{ matrix.example }}-android.tsv"
       - if: always()
-        uses: actions/upload-artifact@v4 # TODO(julio): pin to a commit SHA like the other actions before enabling
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: e2e-${{ matrix.example }}-android
           path: e2e/results/
 
   ios:
+    if: vars.E2E_IOS_ENABLED == 'true'
     runs-on: [self-hosted, macOS, macos-docker]
     timeout-minutes: 120
     strategy:
@@ -139,7 +140,7 @@ jobs:
       - if: always()
         run: docker compose -f e2e/stack/docker-compose.yml down -v
       - if: always()
-        uses: actions/upload-artifact@v4 # TODO(julio): pin to a commit SHA like the other actions before enabling
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: e2e-${{ matrix.example }}-ios
           path: e2e/results/
