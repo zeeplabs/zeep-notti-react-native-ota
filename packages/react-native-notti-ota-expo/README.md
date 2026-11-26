@@ -28,7 +28,7 @@ The Expo config plugin is provided by `react-native-notti-ota`. Add it to your a
         "react-native-notti-ota",
         {
           "appId": "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
-          "baseUrl": "https://api.notti.app",
+          "baseUrl": "https://app.zeepnotti.app",
           "clientKey": "your-client-key",
           "channel": "production",
           "runtimeVersion": "1.4.0",

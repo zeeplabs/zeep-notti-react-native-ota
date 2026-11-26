@@ -20,7 +20,7 @@ Add these keys to `Info.plist` (iOS) and as `<meta-data>` in `AndroidManifest.xm
 | Key | Value |
 | --- | --- |
 | `NottiOTAAppId` | Notti App ID (UUID) |
-| `NottiOTABaseUrl` | Notti API base URL, for example `https://api.notti.app` |
+| `NottiOTABaseUrl` | Notti base URL, for example `https://app.zeepnotti.app` (use your own URL if you self-host Notti) |
 | `NottiOTAClientKey` | The App's client key (public, device-restricted) |
 | `NottiOTAChannel` | Release channel, `[a-z0-9-]{1,32}`, for example `production` |
 | `NottiOTARuntimeVersion` | Your runtime version: change it whenever native code changes |
@@ -44,7 +44,7 @@ npx expo install react-native-notti-ota react-native-notti-ota-expo
         "react-native-notti-ota",
         {
           "appId": "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
-          "baseUrl": "https://api.notti.app",
+          "baseUrl": "https://app.zeepnotti.app",
           "clientKey": "your-client-key",
           "channel": "production",
           "runtimeVersion": "1.4.0",
