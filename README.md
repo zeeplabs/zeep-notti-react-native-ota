@@ -39,7 +39,10 @@ Use Node 22 and pnpm.
 ```sh
 pnpm install
 pnpm typecheck && pnpm lint && pnpm test
+pnpm build   # lib/ (react-native-builder-bob) and the Expo config plugin
 ```
+
+The packages publish pre-compiled output (`lib/`); the example apps resolve them through `main`, so run `pnpm build` at the root before building or bundling an example.
 
 Each example app is a standalone project linked to the packages:
 

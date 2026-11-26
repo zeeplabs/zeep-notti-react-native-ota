@@ -63,8 +63,8 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Build the Expo config plugin
-        run: pnpm build:plugin
+      - name: Build the packages (lib/ and the Expo config plugin)
+        run: pnpm build
 
       # `pnpm pack` rewrites the adapter's `workspace:` specifiers into real
       # versions (npm would publish them as-is); the script then fails the job

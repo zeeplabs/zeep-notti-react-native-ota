@@ -13,7 +13,7 @@ run_js() {
   pnpm typecheck
   pnpm lint
   pnpm test
-  pnpm build:plugin
+  pnpm build
 }
 
 run_android() {
@@ -21,7 +21,7 @@ run_android() {
   pnpm install --ignore-workspace --frozen-lockfile
   cd android
   ./gradlew :react-native-notti-ota:testDebugUnitTest --console=plain
-  cd "$root" && pnpm build:plugin
+  cd "$root" && pnpm build
   cd "$root/example-expo-55"
   pnpm install --ignore-workspace --frozen-lockfile
   npx expo prebuild --platform android --clean --no-install
@@ -46,7 +46,7 @@ run_examples() {
   local platform="$1"
   cd "$root"
   pnpm install --frozen-lockfile
-  pnpm build:plugin
+  pnpm build
   for example in example-bare-083 example-bare-088 example-expo-55 example-expo-58; do
     cd "$root/$example"
     pnpm install --ignore-workspace --frozen-lockfile
