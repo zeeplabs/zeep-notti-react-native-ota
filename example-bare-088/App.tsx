@@ -6,11 +6,26 @@
  */
 
 import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import {
+  StatusBar,
+  StyleSheet,
+  Text,
+  useColorScheme,
+  View,
+} from 'react-native';
 import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { VARIANT } from './variant';
+
+if (VARIANT === 'crash') {
+  throw new Error('Live updates e2e: crash release');
+}
+if (VARIANT === 'hang') {
+  const start = Date.now();
+  while (Date.now() >= start) {}
+}
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -28,6 +43,9 @@ function AppContent() {
 
   return (
     <View style={styles.container}>
+      <Text testID="ota-variant" style={{ paddingTop: safeAreaInsets.top }}>
+        Live update: {VARIANT}
+      </Text>
       <NewAppScreen
         templateFileName="App.tsx"
         safeAreaInsets={safeAreaInsets}

@@ -84,6 +84,15 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        // Live updates configuration; the e2e flows pass their own with -PnottiOta*=...
+        manifestPlaceholders.putAll([
+            nottiOtaAppId: findProperty("nottiOtaAppId") ?: "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+            nottiOtaBaseUrl: findProperty("nottiOtaBaseUrl") ?: "http://localhost:18080",
+            nottiOtaClientKey: findProperty("nottiOtaClientKey") ?: "example-client-key",
+            nottiOtaChannel: findProperty("nottiOtaChannel") ?: "production",
+            nottiOtaRuntimeVersion: findProperty("nottiOtaRuntimeVersion") ?: "1.0.0",
+            nottiOtaPublicKeys: findProperty("nottiOtaPublicKeys") ?: "f1bf4b16f6495aa0:BM4UFVgJdSZMpgM2XN8T8hRcMWsLY3G0aUBQzrbp0Gb1buVKWTFRndhM5HlUdlZwInH6VthgJCEIc3pcNnWKanw=",
+        ])
     }
     signingConfigs {
         debug {

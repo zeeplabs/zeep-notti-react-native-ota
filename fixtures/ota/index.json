@@ -1,0 +1,32 @@
+{
+  "valid.tar.gz": {
+    "expect": "accept",
+    "sha256": "ee3bece72e9932604f0f0df9e766e116c21d1c022008c60a63901dee68e27a34",
+    "size": 241
+  },
+  "tampered.tar.gz": {
+    "expect": "reject: index.android.bundle does not match the sha256 in files.json",
+    "sha256": "c4d6e7a2d2a223365d187d550bcc637c67e2e313a30579d78c1a8c89e3f02d3f",
+    "size": 246
+  },
+  "path-traversal.tar.gz": {
+    "expect": "reject: entry ../escape.js leaves the extraction directory",
+    "sha256": "d06d21e173c17ae897057347c81e3714d9bdae0abf0b4f84a329b5eedb1fbd57",
+    "size": 269
+  },
+  "absolute-path.tar.gz": {
+    "expect": "reject: entry /tmp/escape.js is absolute",
+    "sha256": "2526f5ff1faeeb16349ef9797fad457eaf3fcf411f7b1df759697e09737ccf73",
+    "size": 267
+  },
+  "symlink.tar.gz": {
+    "expect": "reject: entry assets/link is a symbolic link",
+    "sha256": "d18820a16d6a461d4f8f9e22a461d9872b6107ed2d3fe84df475bd03a26c2abb",
+    "size": 275
+  },
+  "unlisted-file.tar.gz": {
+    "expect": "reject: entry extra.js is not listed in files.json",
+    "sha256": "f27aeb9c34f8475d963f5b8252d71f319b306785c0d6448bc86e82b25f426ef2",
+    "size": 262
+  }
+}

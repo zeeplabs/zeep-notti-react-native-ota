@@ -10,7 +10,14 @@
       android:allowBackup="false"
       android:theme="@style/AppTheme"
       android:usesCleartextTraffic="${usesCleartextTraffic}"
+      android:networkSecurityConfig="@xml/network_security_config"
       android:supportsRtl="true">
+      <meta-data android:name="NottiOTAAppId" android:value="${nottiOtaAppId}" />
+      <meta-data android:name="NottiOTABaseUrl" android:value="${nottiOtaBaseUrl}" />
+      <meta-data android:name="NottiOTAClientKey" android:value="${nottiOtaClientKey}" />
+      <meta-data android:name="NottiOTAChannel" android:value="${nottiOtaChannel}" />
+      <meta-data android:name="NottiOTARuntimeVersion" android:value="${nottiOtaRuntimeVersion}" />
+      <meta-data android:name="NottiOTAPublicKeys" android:value="${nottiOtaPublicKeys}" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"
@@ -23,5 +30,6 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+      <receiver android:name=".E2EHeadlessReceiver" android:exported="true" />
     </application>
 </manifest>

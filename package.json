@@ -7,7 +7,8 @@
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest",
-    "ci:local": "bash scripts/ci-local.sh"
+    "ci:local": "bash scripts/ci-local.sh",
+    "build:plugin": "pnpm --filter react-native-notti-ota build:plugin"
   },
   "repository": {
     "type": "git",

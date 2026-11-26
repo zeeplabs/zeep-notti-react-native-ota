@@ -1,0 +1,9 @@
+package licensing
+
+import "os"
+
+func init() {
+	if key := os.Getenv("NOTTI_E2E_LICENSE_PUBLIC_KEY"); key != "" {
+		publicKey = mustDecodePublicKey(key)
+	}
+}

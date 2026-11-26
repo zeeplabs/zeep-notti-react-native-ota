@@ -1,0 +1,108 @@
+# Spikes (T31)
+
+Two throwaway prototypes that gate the native work (design risks R9 and R10), plus the Hermes header check the CLI could not run. Run on 2026-11-25 on macOS (Xcode 27.2, JDK 17, Android emulator API 37).
+
+## (a) Expo adapter autolinking on Expo 55 and 58 (R9)
+
+**Prototype.** `packages/react-native-notti-ota-expo` with:
+
+- `expo-module.config.json`: `apple.reactDelegateHandlers: ["NottiOtaReactDelegateHandler"]` and `android.packages: ["com.notti.ota.expo.NottiOtaExpoPackage"]`;
+- Android: a `Package` whose `createReactNativeHostHandlers` returns a `ReactNativeHostHandler` that logs from `getJSBundleFile` and rethrows from `onReactInstanceException`;
+- iOS: an `ExpoReactDelegateHandler` subclass that logs from `bundleURL(reactDelegate:)`.
+
+The example apps depend on the packages through `link:`, like a customer install from npm.
+
+**Finding 1: the podspec must sit in a subdirectory.** Expo autolinking only looks for `*.podspec` one level down (`expo-modules-autolinking` `findPodspecFiles`: "top-level directories"), so a podspec at the package root is silently ignored on iOS. It lives in `ios/NottiOtaExpo.podspec`.
+
+**Finding 2: Expo's Android host swallows instance errors once a handler exists** (`expo/android/.../ExpoReactHostFactory.kt`, `handleInstanceException`: throws only when `hostHandlers.isEmpty()`). Identical in Expo 55 and 58. This confirms R12: the adapter must rethrow (OTA-37 AC8).
+
+| Check | Expo 55 (RN 0.83.10) | Expo 58 (RN 0.88.1) |
+| --- | --- | --- |
+| `expo-modules-autolinking resolve --platform android` lists `NottiOtaExpoPackage` | yes | yes |
+| `expo-modules-autolinking resolve --platform apple` lists `NottiOtaReactDelegateHandler` (pod `NottiOtaExpo`) | yes | yes |
+| Generated `ExpoModulesProvider.swift` registers the handler | yes (`(packageName: "react-native-notti-ota-expo", handler: NottiOtaReactDelegateHandler.self)`) | yes |
+| `ReactNativeHostHandler` interface | identical file in both versions | identical |
+| Android Release APK builds with the adapter | yes | yes |
+| Android Release run on the emulator calls `getJSBundleFile` | yes: `I NottiOta: Live updates: Expo bundle hook called (developer support: false)`, then `Running "main"` | yes, same log line |
+| iOS Release (simulator) builds with the adapter | yes | yes (the first build failed on a 5 s `ExpoModulesMacros scan-modules` timeout under load; the rebuild passed) |
+| iOS Release run calls `bundleURL(reactDelegate:)` | **not confirmed**: the app crashes in UIKit before React starts, see "iOS 27 scene lifecycle" | yes: `[com.notti.ota:NottiOta] Live updates: Expo bundle hook called`, then `Running "main"` (the Expo 58 template has a `SceneDelegate`) |
+
+**Bare apps do not link Expo.** `react-native config` in `example-bare-083` and `example-bare-088` autolinks only `react-native-safe-area-context` and `react-native-notti-ota`; neither has `expo-modules-core` in `node_modules`, and the bare 0.83 Release APK has no `expo` entry.
+
+**iOS 27 scene lifecycle (new risk, not caused by the adapter).** The Expo 55 Release app built with the iOS 27 SDK stops with `EXC_BREAKPOINT` in `_UIApplicationEvaluateRuntimeIssueForNoSceneLifecycleAdoption` while UIKit creates the first scene, before any React or adapter code runs (crash report `exampleexpo55-2026-11-25-163549.ips`). Apps built with the newest Xcode must adopt `UIScene`; the Expo 55 / RN 0.83 templates use the app-delegate lifecycle. This matters for the iOS launch monitor (T38, risk R11) and for the RN 0.83 / Expo 55 floor when customers build with Xcode 27. To confirm on a device or an older simulator runtime before T38.
+
+**Result: no blocker for T32.** Android is confirmed at runtime on both Expo versions, iOS at runtime on Expo 58. On Expo 55 iOS the handler is registered by autolinking, but the runtime call could not be observed because of the scene-lifecycle crash above; confirm it on an iOS 26 runtime or a device before T38/T42 (phases 5b/5c).
+
+### Follow-up (T42): Expo 55 on iOS with the scene life cycle
+
+Run on 2026-11-25 (Xcode 27.2, iOS 27.1 simulator "iPhone Duo"). `example-expo-55` now has an example-only config plugin, `plugins/withSceneLifecycle.js`, that adds `UIApplicationSceneManifest` to `Info.plist` and moves the window creation and `startReactNative` from `AppDelegate.didFinishLaunching` into a `SceneDelegate` (Expo 55 has no `ExpoAppSceneDelegate`). The app also uses the real adapter (calling `NottiOTA.bundleURL()`) and the `react-native-notti-ota` config plugin.
+
+Release build, cold launch, `log show --info`:
+
+```
+17:37:46.960 [com.notti.ota:NottiOta] Live updates: Expo bundle hook called (Live update selected: false)
+17:37:47.123 [com.facebook.react.log:javascript] Running "main"
+17:37:50.965 [com.notti.ota:NottiOta] Live updates: update check failed
+```
+
+No crash report, the process stays up, and `state.json` shows no `integration_missing` and a recorded `last_check_at` (the check needs first content after a foreground activation; it failed only because no Notti server runs at the example's `localhost:8080`).
+
+**Result: confirmed.** With `UIScene` adopted, Expo 55 calls the adapter's `bundleURL(reactDelegate:)` before React runs the bundle. Without it, the Expo 55 template still stops in UIKit when built with the iOS 27 SDK; the package README tells customers to adopt `UIScene` or use Expo SDK 56+ when building with Xcode 27.
+
+## (b) iOS gzip + ustar extractor with `Compression` (R10)
+
+**Prototype.** `spikes/ios-extractor/main.swift`, run with `swift spikes/ios-extractor/main.swift fixtures/ota`:
+
+1. parses the gzip header (RFC 1952: magic, CM = 8, FEXTRA, FNAME, FCOMMENT, FHCRC) and the 8-byte trailer (CRC32, ISIZE);
+2. inflates the raw deflate body with `compression_decode_buffer(..., COMPRESSION_ZLIB)` (Apple's `COMPRESSION_ZLIB` is raw deflate, no zlib header), then checks the CRC32 and ISIZE;
+3. reads ustar headers (magic, header checksum, `prefix` + `name`, octal size, type flag), and rejects absolute paths, `..` segments, symbolic links, other entry types, unlisted files and SHA-256 mismatches against `files.json`.
+
+**Evidence** (CLI fixtures copied from `zeep-notti-cli` commit `6e5626e`):
+
+```
+PASS absolute-path.tar.gz: reject: entry /tmp/escape.js is absolute
+PASS path-traversal.tar.gz: reject: entry ../escape.js leaves the extraction directory
+PASS symlink.tar.gz: reject: entry assets/link is a symbolic link
+PASS tampered.tar.gz: reject: index.android.bundle does not match the sha256 in files.json
+PASS unlisted-file.tar.gz: reject: entry extra.js is not listed in files.json
+PASS valid.tar.gz: accept (3 files, 5632 tar bytes)
+```
+
+Ran on macOS; `Compression` and `CryptoKit` have the same API on iOS 15.1+.
+
+**Findings for T37.**
+
+- The buffer API needs the output size up front and the prototype takes it from ISIZE. ISIZE is attacker-influenced and only modulo 2^32, so T37 must use the streaming `compression_stream` API with a hard output cap (the manifest's total file size), not ISIZE.
+- Verifying the archive SHA-256 before inflating (as the design orders it) makes the CRC32 check redundant; keep it as a cheap corruption check.
+
+**Result: no blocker.**
+
+## Hermes bytecode header (for the CLI and the device compatibility check)
+
+Compiled `var a = 1; print(a + 1);` with the real `hermesc` (`-emit-binary`) from each version's `hermes-compiler` package, and read the embedded `index.android.bundle` from the Release APKs built by Gradle:
+
+| React Native | `hermes-compiler` | First 12 bytes | Bytecode version |
+| --- | --- | --- | --- |
+| 0.83.10 | 0.14.1 | `c6 1f bc 03 c1 03 19 1f 60 00 00 00` | 96 |
+| 0.88.1 | 260318099.0.5 | `c6 1f bc 03 c1 03 19 1f 63 00 00 00` | 99 |
+
+- Magic: bytes 0 to 7 are `c6 1f bc 03 c1 03 19 1f` (the little-endian uint64 `0x1F1903C103BC1FC6`), the same in both versions.
+- Version: bytes 8 to 11, little-endian uint32.
+
+The CLI can validate the magic before reading the version; the Android verifier already requires it (`HermesHeader`).
+
+## Follow-up (post-review F1): iOS crash marker instead of exit reasons
+
+iOS has no API for the reason the previous process ended, so the first iOS version (T38) counted any launch attempt left over at the next start as a failed launch. A user who swiped the app away within the first seconds of two launches would then roll back and block a good release.
+
+The SDK now arms a crash marker for the attempt window only (from the foreground activation until the attempt ends: applied, failed, interrupted or no verdict):
+
+- `OTACrashMarker.m` installs, once, a chained `NSSetUncaughtExceptionHandler` and `sigaction` handlers for SIGABRT, SIGSEGV, SIGBUS, SIGILL, SIGTRAP and SIGFPE, keeping the previous handlers;
+- arming opens `NottiOTA/crash.marker` ahead of time; the signal handler only calls `write` and `fsync` on that descriptor (async-signal-safe, no allocation, no Objective-C or Swift), then restores the previous action and calls it (or re-raises with the default action), so other crash reporters still see the crash;
+- a JS fatal error goes through the chained `RCTSetFatalHandler`, which records the failed launch in the state directly, before the crash.
+
+At the next start, a leftover attempt with a non-empty marker is a failed launch (`crash`); without it, the launch was interrupted (3 interrupted = 1 failed, as on Android API 30+). The 10 s watchdog still catches hangs (`watchdog`). XCTest covers the marker, the interrupted path, 3 interruptions = 1 failure, and the chaining of the previous signal and exception handlers.
+
+Known limit: a crash that kills the process without a catchable signal (out-of-memory or watchdog kill by the OS, SIGKILL) counts as interrupted, the same as on Android.
+
+End-to-end finding (T43): in a bare iOS app (RN 0.83 and 0.88, bridgeless, Release), a JavaScript exception thrown while the bundle loads is logged as `Unhandled JS Exception: [runtime not ready]` and never reaches `RCTFatal`, so the process stays up without content; the watchdog rolls such a release back with `watchdog`. The Expo iOS host does call the fatal handler (`crash`).

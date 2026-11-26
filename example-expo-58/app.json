@@ -22,6 +22,22 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "react-native-notti-ota",
+        {
+          "appId": "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f",
+          "baseUrl": "http://localhost:18080",
+          "clientKey": "example-client-key",
+          "channel": "production",
+          "runtimeVersion": "1.4.0",
+          "publicKeys": [
+            "-----BEGIN PUBLIC KEY-----\nMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEzhQVWAl1JkymAzZc3xPyFFwxawtj\ncbRpQFDOtunQZvVu5UpZMVGd2EzkeVR2VnAicfpW2GAkIQhzelw2dYpqfA==\n-----END PUBLIC KEY-----"
+          ]
+        }
+      ],
+      "./plugins/withLocalCleartext"
+    ]
   }
 }

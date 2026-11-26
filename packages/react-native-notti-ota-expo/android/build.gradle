@@ -16,4 +16,6 @@ android {
 
 dependencies {
   implementation project(":react-native-notti-ota")
+
+  testImplementation "junit:junit:4.13.2"
 }

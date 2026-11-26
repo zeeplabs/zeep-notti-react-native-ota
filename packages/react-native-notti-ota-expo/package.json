@@ -11,6 +11,7 @@
     "expo-module.config.json",
     "*.podspec",
     "!android/build",
+    "!android/src/test",
     "!ios/build",
     "!**/.*"
   ],

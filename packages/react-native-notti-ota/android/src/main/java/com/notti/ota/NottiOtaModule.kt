@@ -5,14 +5,32 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 
 class NottiOtaModule(reactContext: ReactApplicationContext) : NativeNottiOtaSpec(reactContext) {
+  private val listener: (ReleasePointer) -> Unit = { pointer ->
+    emitOtaUpdateReady(
+      Arguments.createMap().apply {
+        putString("releaseId", pointer.releaseId)
+        putBoolean("mandatory", pointer.mandatory)
+      }
+    )
+  }
+
+  init {
+    NottiOta.updateReadyListener = listener
+  }
 
   override fun getName(): String = NAME
 
   override fun getCurrentRelease(promise: Promise) {
+    val releaseId = NottiOta.currentReleaseId()
     val result = Arguments.createMap()
-    result.putNull("releaseId")
-    result.putBoolean("isEmbedded", true)
+    if (releaseId == null) result.putNull("releaseId") else result.putString("releaseId", releaseId)
+    result.putBoolean("isEmbedded", releaseId == null)
     promise.resolve(result)
+  }
+
+  override fun invalidate() {
+    if (NottiOta.updateReadyListener === listener) NottiOta.updateReadyListener = null
+    super.invalidate()
   }
 
   companion object {

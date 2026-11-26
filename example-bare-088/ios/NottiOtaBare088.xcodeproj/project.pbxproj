@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0C80B921A6F3F58F76C31292 /* libPods-NottiOtaBare088.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-NottiOtaBare088.a */; };
+		0EE8A285FDC1EDBB0D945B47 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		761780EF2CA45674006654EF /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EE2CA45674006654EF /* SceneDelegate.swift */; };
@@ -162,6 +163,7 @@
 			files = (
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
+				0EE8A285FDC1EDBB0D945B47 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -270,12 +272,18 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				NOTTI_OTA_APP_ID = "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f";
+				NOTTI_OTA_BASE_URL = "http:/$()/localhost:18080";
+				NOTTI_OTA_CHANNEL = production;
+				NOTTI_OTA_CLIENT_KEY = "example-client-key";
+				NOTTI_OTA_PUBLIC_KEYS = "f1bf4b16f6495aa0:BM4UFVgJdSZMpgM2XN8T8hRcMWsLY3G0aUBQzrbp0Gb1buVKWTFRndhM5HlUdlZwInH6VthgJCEIc3pcNnWKanw=";
+				NOTTI_OTA_RUNTIME_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.notti.ota.example.bare088";
+				PRODUCT_BUNDLE_IDENTIFIER = com.notti.ota.example.bare088;
 				PRODUCT_NAME = NottiOtaBare088;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -299,12 +307,18 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				NOTTI_OTA_APP_ID = "9c1d2e3f-4a5b-4c6d-8e7f-0a1b2c3d4e5f";
+				NOTTI_OTA_BASE_URL = "http:/$()/localhost:18080";
+				NOTTI_OTA_CHANNEL = production;
+				NOTTI_OTA_CLIENT_KEY = "example-client-key";
+				NOTTI_OTA_PUBLIC_KEYS = "f1bf4b16f6495aa0:BM4UFVgJdSZMpgM2XN8T8hRcMWsLY3G0aUBQzrbp0Gb1buVKWTFRndhM5HlUdlZwInH6VthgJCEIc3pcNnWKanw=";
+				NOTTI_OTA_RUNTIME_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.notti.ota.example.bare088";
+				PRODUCT_BUNDLE_IDENTIFIER = com.notti.ota.example.bare088;
 				PRODUCT_NAME = NottiOtaBare088;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 5.0;
@@ -374,6 +388,10 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -381,8 +399,13 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -439,6 +462,10 @@
 					"\"$(inherited)\"",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -446,8 +473,12 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
+				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;

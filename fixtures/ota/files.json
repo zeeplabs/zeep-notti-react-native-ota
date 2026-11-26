@@ -1,0 +1,20 @@
+{
+  "bundle": "index.android.bundle",
+  "files": [
+    {
+      "path": "assets/fonts/inter.ttf",
+      "sha256": "702796f7f5b16d061f8eeb7ca5e4db74af0be9e8051498b1ca9950c1995c1b41",
+      "size": 18
+    },
+    {
+      "path": "drawable-mdpi/assets_logo.png",
+      "sha256": "859190567bf44eb73429c44f5a02ee21dad4cde6b1c1ba291efe98ca3cc26c64",
+      "size": 17
+    },
+    {
+      "path": "index.android.bundle",
+      "sha256": "467642387f409cf9ea685dc361fa0efba1b3fd20de7de2962b38d7e2f151aca6",
+      "size": 32
+    }
+  ]
+}

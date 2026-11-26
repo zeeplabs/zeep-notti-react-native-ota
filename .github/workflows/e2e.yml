@@ -1,0 +1,146 @@
+name: E2E
+# Live updates end-to-end matrix (e2e/run.sh + Maestro) against a local Notti
+# stack (e2e/stack). Nightly and on manual dispatch only: it is not a
+# pull request check (it needs private-repo secrets and a Docker runner).
+#
+# Needs: the NOTTI_SERVER_REPO_TOKEN secret (read access to zeeplabs/zeep-notti
+# and zeeplabs/zeep-notti-cli, which are private). The iOS jobs need a
+# self-hosted macOS runner with Docker (label `macos-docker`): hosted macOS
+# runners have no Docker for the stack. The iOS jobs only run when the
+# repository variable E2E_IOS_ENABLED is 'true', so they never sit queued
+# waiting for a runner that does not exist.
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MAESTRO_VERSION: 2.12.1
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        example: [example-bare-083, example-bare-088, example-expo-55, example-expo-58]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: zeeplabs/zeep-notti
+          ref: develop
+          token: ${{ secrets.NOTTI_SERVER_REPO_TOKEN }}
+          path: .e2e/zeep-notti
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: zeeplabs/zeep-notti-cli
+          token: ${{ secrets.NOTTI_SERVER_REPO_TOKEN }}
+          path: .e2e/zeep-notti-cli
+      - uses: ./.github/actions/setup
+      - run: pnpm build:plugin
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      - name: Build the CLI
+        working-directory: .e2e/zeep-notti-cli
+        run: pnpm install --frozen-lockfile && pnpm build
+      - name: Start the local Notti stack
+        working-directory: e2e/stack
+        env:
+          NOTTI_SERVER_DIR: ${{ github.workspace }}/.e2e/zeep-notti
+          NOTTI_CLI: ${{ github.workspace }}/.e2e/zeep-notti-cli/dist/cli.js
+        run: |
+          export NOTTI_E2E_LICENSE_PUBLIC_KEY=$(node license.js keys)
+          docker compose up -d --build --wait notti minio
+          ../setup.sh ultimate ${{ matrix.example }}
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION=$MAESTRO_VERSION bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+      - name: Start the emulator
+        run: |
+          sdk="$ANDROID_HOME/cmdline-tools/latest/bin"
+          yes | "$sdk/sdkmanager" --licenses >/dev/null
+          "$sdk/sdkmanager" "system-images;android-35;google_apis;x86_64" "emulator" "platform-tools" >/dev/null
+          echo no | "$sdk/avdmanager" create avd -n e2e -k "system-images;android-35;google_apis;x86_64" --force
+          nohup "$ANDROID_HOME/emulator/emulator" -avd e2e -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect &
+          "$ANDROID_HOME/platform-tools/adb" wait-for-device
+          until [ "$("$ANDROID_HOME/platform-tools/adb" shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; do sleep 5; done
+      - name: Run the flows
+        env:
+          NOTTI_CLI: ${{ github.workspace }}/.e2e/zeep-notti-cli/dist/cli.js
+        run: e2e/run.sh ${{ matrix.example }} android
+      - name: Fail on a failed flow
+        run: "! grep -P '\\tFAIL\\t' e2e/results/${{ matrix.example }}-android.tsv"
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-${{ matrix.example }}-android
+          path: e2e/results/
+
+  ios:
+    if: vars.E2E_IOS_ENABLED == 'true'
+    runs-on: [self-hosted, macOS, macos-docker]
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        example: [example-bare-083, example-bare-088, example-expo-55, example-expo-58]
+    env:
+      RCT_USE_RN_DEP: 1
+      RCT_USE_PREBUILT_RNCORE: 1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: zeeplabs/zeep-notti
+          ref: develop
+          token: ${{ secrets.NOTTI_SERVER_REPO_TOKEN }}
+          path: .e2e/zeep-notti
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: zeeplabs/zeep-notti-cli
+          token: ${{ secrets.NOTTI_SERVER_REPO_TOKEN }}
+          path: .e2e/zeep-notti-cli
+      - uses: ./.github/actions/setup
+      - run: pnpm build:plugin
+      - name: Build the CLI
+        working-directory: .e2e/zeep-notti-cli
+        run: pnpm install --frozen-lockfile && pnpm build
+      - name: Start the local Notti stack
+        working-directory: e2e/stack
+        env:
+          NOTTI_SERVER_DIR: ${{ github.workspace }}/.e2e/zeep-notti
+          NOTTI_CLI: ${{ github.workspace }}/.e2e/zeep-notti-cli/dist/cli.js
+        run: |
+          export NOTTI_E2E_LICENSE_PUBLIC_KEY=$(node license.js keys)
+          docker compose up -d --build --wait notti minio
+          ../setup.sh ultimate ${{ matrix.example }}
+      - name: Install the example
+        working-directory: ${{ matrix.example }}
+        run: pnpm install --ignore-workspace --frozen-lockfile && if [ -f ios/Podfile ]; then (cd ios && pod install); fi
+      - name: Run the flows
+        env:
+          NOTTI_CLI: ${{ github.workspace }}/.e2e/zeep-notti-cli/dist/cli.js
+        run: e2e/run.sh ${{ matrix.example }} ios
+      - name: Fail on a failed flow
+        run: "! grep -P '\\tFAIL\\t' e2e/results/${{ matrix.example }}-ios.tsv"
+      - if: always()
+        run: docker compose -f e2e/stack/docker-compose.yml down -v
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-${{ matrix.example }}-ios
+          path: e2e/results/

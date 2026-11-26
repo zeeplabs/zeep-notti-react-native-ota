@@ -1,0 +1,61 @@
+# Local Notti for the Live updates end-to-end flows: self-hosted mode, Postgres,
+# Redis and MinIO. Never point it at a shared or production environment.
+#
+# NOTTI_SERVER_DIR is the zeep-notti checkout to build (default: the sibling
+# checkout in the ZeepLabs workspace). Notti and MinIO use host networking so
+# the presigned MinIO URLs (localhost:19000) work from the server, the iOS
+# simulator and, through `adb reverse`, the Android emulator.
+name: notti-ota-e2e
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "15432:5432"
+    environment:
+      POSTGRES_USER: notti
+      POSTGRES_PASSWORD: notti
+      POSTGRES_DB: notti
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U notti -d notti"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "16379:6379"
+
+  minio:
+    # Same image and digest as zeep-notti's integration tests (internal/testdb/minio.go).
+    image: cgr.dev/chainguard/minio@sha256:f6243be11aaaa2fe654d260558e2b3fcef50135e78a3abfd0db802b13444f059
+    command: ["server", "/tmp/data", "--address", ":19000", "--console-address", ":19001"]
+    network_mode: host
+    environment:
+      MINIO_ROOT_USER: notti-e2e
+      MINIO_ROOT_PASSWORD: notti-e2e-secret
+
+  notti:
+    build:
+      context: ${NOTTI_SERVER_DIR:-../../../../saas/zeep-notti}
+      dockerfile: ${PWD}/Dockerfile.notti
+      additional_contexts:
+        e2e: .
+    network_mode: host
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DEPLOYMENT_MODE: self-hosted
+      DATABASE_URL: postgres://notti:notti@localhost:15432/notti?sslmode=disable
+      REDIS_URL: redis://localhost:16379
+      NOTTI_MASTER_KEY: 6532652d6c6f63616c2d737461636b2d6d61737465722d6b65792d3332627974
+      NOTTI_SESSION_SECRET: e2e-session-signing-secret
+      NOTTI_BOOTSTRAP_TOKEN: zn_boot_e2eLocalStackToken01
+      LISTEN_ADDR: ":18080"
+      # Unreachable on purpose: the license heartbeat must never call Zeep from a test stack.
+      LICENSE_SERVER_URL: http://127.0.0.1:9
+      NOTTI_E2E_LICENSE_PUBLIC_KEY: ${NOTTI_E2E_LICENSE_PUBLIC_KEY:?run e2e/stack/license.js keys first}

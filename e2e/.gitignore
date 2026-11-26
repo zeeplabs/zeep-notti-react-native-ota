@@ -1,0 +1,6 @@
+.env.local
+.cookies
+.signing.private.pem
+results/
+.signing.public.pem
+.env.*
