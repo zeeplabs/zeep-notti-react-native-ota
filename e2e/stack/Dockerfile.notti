@@ -1,0 +1,17 @@
+# The zeep-notti image, plus one file that lets the e2e stack trust a locally
+# generated license signing key (NOTTI_E2E_LICENSE_PUBLIC_KEY). Test stacks only:
+# the release image is built from zeep-notti's own Dockerfile, without it.
+FROM golang:1.27-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+COPY --from=e2e license_e2e.go.txt internal/licensing/zz_license_e2e.go
+RUN CGO_ENABLED=0 go build -o /out/notti ./cmd/notti
+
+FROM alpine:3.20
+RUN addgroup -S notti && adduser -S notti -G notti
+COPY --from=build /out/notti /usr/local/bin/notti
+USER notti
+ENTRYPOINT ["notti"]
+CMD ["serve"]

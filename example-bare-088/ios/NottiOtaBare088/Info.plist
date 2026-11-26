@@ -26,6 +26,18 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NottiOTAAppId</key>
+	<string>$(NOTTI_OTA_APP_ID)</string>
+	<key>NottiOTABaseUrl</key>
+	<string>$(NOTTI_OTA_BASE_URL)</string>
+	<key>NottiOTAClientKey</key>
+	<string>$(NOTTI_OTA_CLIENT_KEY)</string>
+	<key>NottiOTAChannel</key>
+	<string>$(NOTTI_OTA_CHANNEL)</string>
+	<key>NottiOTARuntimeVersion</key>
+	<string>$(NOTTI_OTA_RUNTIME_VERSION)</string>
+	<key>NottiOTAPublicKeys</key>
+	<string>$(NOTTI_OTA_PUBLIC_KEYS)</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 	  <!-- Do not change NSAllowsArbitraryLoads to true, or you will risk app rejection! -->

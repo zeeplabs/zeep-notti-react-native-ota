@@ -104,3 +104,5 @@ The SDK now arms a crash marker for the attempt window only (from the foreground
 At the next start, a leftover attempt with a non-empty marker is a failed launch (`crash`); without it, the launch was interrupted (3 interrupted = 1 failed, as on Android API 30+). The 10 s watchdog still catches hangs (`watchdog`). XCTest covers the marker, the interrupted path, 3 interruptions = 1 failure, and the chaining of the previous signal and exception handlers.
 
 Known limit: a crash that kills the process without a catchable signal (out-of-memory or watchdog kill by the OS, SIGKILL) counts as interrupted, the same as on Android.
+
+End-to-end finding (T43): in a bare iOS app (RN 0.83 and 0.88, bridgeless, Release), a JavaScript exception thrown while the bundle loads is logged as `Unhandled JS Exception: [runtime not ready]` and never reaches `RCTFatal`, so the process stays up without content; the watchdog rolls such a release back with `watchdog`. The Expo iOS host does call the fatal handler (`crash`).

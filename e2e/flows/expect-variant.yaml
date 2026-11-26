@@ -1,0 +1,11 @@
+# Cold start, then the variant the bundle was built with must show.
+# Params: APP_ID, VARIANT (embedded, v1, v2...).
+appId: ${APP_ID}
+name: Cold start shows the ${VARIANT} bundle
+---
+- launchApp:
+    appId: ${APP_ID}
+    stopApp: true
+- extendedWaitUntil:
+    visible: "Live update: ${VARIANT}"
+    timeout: 20000
