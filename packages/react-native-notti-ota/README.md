@@ -11,7 +11,7 @@ Notti Live updates for React Native: ship JavaScript and asset fixes without a s
 
 ## Requirements
 
-- React Native 0.83 or newer (New Architecture), or Expo SDK 55 or newer (prebuild or a development build, not Expo Go).
+- React Native 0.83 or newer (New Architecture, Hermes), or Expo SDK 55 or newer (prebuild or a development build, not Expo Go).
 - iOS 15.1+, Android 7.0 (API 24)+.
 - `expo-updates` must not be installed: both load the app bundle.
 - A Notti App (App ID and client key) and a signing key. Releases are published with the [Notti CLI](https://github.com/zeeplabs/zeep-notti-cli) (`@notti/cli`: `notti ota keys generate`, `notti ota release`).

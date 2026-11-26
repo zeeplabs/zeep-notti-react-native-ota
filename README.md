@@ -19,7 +19,7 @@ Ship JavaScript and asset fixes to your React Native app without a store release
 
 ## Requirements
 
-- React Native 0.83 or newer, New Architecture.
+- React Native 0.83 or newer, New Architecture, Hermes.
 - Expo SDK 55 or newer (Expo projects). `expo-updates` must not be installed: it takes over the same bundle hook.
 - Android 7.0 (API 24) or newer. iOS 15.1 or newer.
 - A Notti App (App ID and client key) and a plan or license that includes Live updates.
