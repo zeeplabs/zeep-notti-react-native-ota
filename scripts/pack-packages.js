@@ -4,6 +4,9 @@
 //   - the packed version equals the root (lockstep) version
 //   - no `workspace:`, `link:` or `file:` specifier is left in any manifest
 //   - the adapter has a resolvable range on the core that accepts this version
+//   - the packages are built first (`pnpm run build`: bob -> lib/, plus the
+//     core's Expo config plugin) and every tarball ships the files its
+//     `main`/`types`/`exports` point at, and no tests/fixtures/mocks
 // `pnpm pack` rewrites `workspace:` specifiers; `npm pack` would not. The
 // tarballs are then published with `npm publish <tarball>` (npm does the OIDC
 // trusted-publishing handshake). Prints one tarball path per line, in
@@ -33,6 +36,12 @@ fs.mkdirSync(outDir, { recursive: true });
 const tarballs = [];
 for (const name of packages) {
   const cwd = path.join(root, 'packages', name);
+  // Never pack stale or missing build output: rebuild lib/ (and plugin/build)
+  // from src/ right before packing.
+  execFileSync('pnpm', ['run', 'build'], {
+    cwd,
+    stdio: ['ignore', 'ignore', 'inherit'],
+  });
   execFileSync('pnpm', ['pack', '--pack-destination', outDir], {
     cwd,
     stdio: ['ignore', 'ignore', 'inherit'],
@@ -49,6 +58,30 @@ for (const name of packages) {
   if (manifest.name !== name || manifest.version !== version) {
     throw new Error(
       `${tarball} holds ${manifest.name}@${manifest.version}, expected ${name}@${version}`
+    );
+  }
+  const entries = new Set(
+    execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' })
+      .split('\n')
+      .filter(Boolean)
+      .map((entry) => entry.replace(/^package\//, ''))
+  );
+  const exported = [manifest.main, manifest.types];
+  for (const target of Object.values(manifest.exports?.['.'] ?? {})) {
+    if (target !== './src/index.ts') exported.push(target);
+  }
+  for (const target of exported) {
+    const file = String(target).replace(/^\.\//, '');
+    if (!entries.has(file)) {
+      throw new Error(`${name}: "${target}" is not in the tarball`);
+    }
+  }
+  const unwanted = [...entries].filter((entry) =>
+    /(^|\/)(__tests__|__fixtures__|__mocks__)\//.test(entry)
+  );
+  if (unwanted.length > 0) {
+    throw new Error(
+      `${name}: test files in the tarball: ${unwanted.join(', ')}`
     );
   }
   for (const field of dependencyFields) {

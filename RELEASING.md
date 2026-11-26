@@ -25,7 +25,7 @@ CI fails if any of these drift (`node scripts/sync-versions.js --check`). Never 
 
 1. Be on an up to date `main` with a clean working tree and CI green.
 2. Run `pnpm release`. release-it computes the next version from the Conventional Commits since the last tag (you can override it at the prompt), prepends the entry to `CHANGELOG.md`, runs the sync hook, commits `chore: release X.Y.Z`, creates the tag `vX.Y.Z` and pushes both.
-3. The tag triggers `Release`. It checks that the tag matches the root and both package versions, runs typecheck, builds the Expo config plugin, packs both packages (see below), publishes the core and then the adapter with `npm publish <tarball> --access public`, and creates the GitHub Release.
+3. The tag triggers `Release`. It checks that the tag matches the root and both package versions, runs typecheck, builds both packages (`pnpm build`), packs them (see below), publishes the core and then the adapter with `npm publish <tarball> --access public`, and creates the GitHub Release.
 4. Confirm both versions on npmjs.com.
 
 Versions already on npm are skipped, so re-running a failed workflow (for example after the core was published and the adapter was not) is safe.
@@ -35,7 +35,7 @@ Versions already on npm are skipped, so re-running a failed workflow (for exampl
 - The workflow runs `scripts/pack-packages.js`, which uses `pnpm pack` and then checks the tarballs: same version as the root, no `workspace:`, `link:` or `file:` specifier left in any manifest, and the adapter's peer range on the core equals `^X.Y.Z`. `pnpm pack` is used because it rewrites the adapter's `workspace:*` dev dependency on the core into the real version, while `npm pack` / `npm publish` from the package directory would publish `workspace:*` as-is.
 - The tarballs are published with `npm publish <tarball>`, not `pnpm publish`, so the OIDC trusted-publishing handshake and provenance are done by the npm CLI itself.
 - The publish job runs on Node 24 because trusted publishing needs npm 11.5.1 or newer (the npm bundled with Node 22 is 10.x).
-- Native code is published as source (`android/`, `ios/`, the podspecs, the Expo module config). The core also ships `plugin/build` (the compiled Expo config plugin, produced by `pnpm build:plugin`) and `src/` (TypeScript entry points, `main` points at `src/index.ts`). Tests, example apps, fixtures, `ios/Tests` and `android/src/test` are not published.
+- Native code is published as source (`android/`, `ios/`, the podspecs, the Expo module config). JavaScript is published pre-compiled: each package builds `lib/module` (ESM) and `lib/typescript` (declarations) with react-native-builder-bob (`pnpm build`), and `main`, `types` and `exports` point at `lib/`. `src/` is also shipped (needed by React Native codegen, source maps and the `source` export condition). The core also ships `plugin/build` (the compiled Expo config plugin). `scripts/pack-packages.js` runs each package's `build` right before `pnpm pack` and fails if `main`/`types`/`exports` targets are missing from a tarball or if `__tests__`, `__fixtures__` or `__mocks__` are included. Tests, example apps, fixtures, `ios/Tests` and `android/src/test` are not published.
 
 ## First publish (one time, by hand)
 
@@ -47,7 +47,7 @@ A Trusted Publisher can only be attached to a package that already exists on npm
    ```sh
    pnpm install --frozen-lockfile
    pnpm typecheck && pnpm lint && pnpm test
-   pnpm build:plugin
+   pnpm build
    node scripts/pack-packages.js .pack     # packs and validates both tarballs
    ```
 

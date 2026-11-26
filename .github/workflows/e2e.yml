@@ -43,7 +43,7 @@ jobs:
           token: ${{ secrets.NOTTI_SERVER_REPO_TOKEN }}
           path: .e2e/zeep-notti-cli
       - uses: ./.github/actions/setup
-      - run: pnpm build:plugin
+      - run: pnpm build
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: 'zulu'
@@ -115,7 +115,7 @@ jobs:
           token: ${{ secrets.NOTTI_SERVER_REPO_TOKEN }}
           path: .e2e/zeep-notti-cli
       - uses: ./.github/actions/setup
-      - run: pnpm build:plugin
+      - run: pnpm build
       - name: Build the CLI
         working-directory: .e2e/zeep-notti-cli
         run: pnpm install --frozen-lockfile && pnpm build
