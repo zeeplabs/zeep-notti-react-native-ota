@@ -14,4 +14,4 @@ First release (beta). `react-native-notti-ota` and `react-native-notti-ota-expo`
 
 * Beta: the API may change in 0.x minor versions.
 * Requires React Native 0.83 or newer (New Architecture), and Expo SDK 55 or newer for the adapter. `expo-updates` must not be installed.
-* Releases are published with the Notti CLI (`@notti/cli`, `notti ota release`).
+* Releases are published with the Notti CLI (`notti-cli`, `notti ota release`).
