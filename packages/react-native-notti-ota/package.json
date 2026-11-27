@@ -62,8 +62,8 @@
     }
   },
   "devDependencies": {
-    "@expo/config-plugins": "^55.0.12",
-    "@types/node": "^22.20.7"
+    "@expo/config-plugins": "^58.0.13",
+    "@types/node": "^26.6.6"
   },
   "scripts": {
     "build": "del-cli lib plugin/build && bob build && tsc -p plugin/tsconfig.json",
