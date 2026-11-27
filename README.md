@@ -41,10 +41,10 @@ cd ios && pod install
 npx expo install react-native-notti-ota react-native-notti-ota-expo
 ```
 
-**2. Create a signing key** with the [Notti CLI](https://github.com/zeeplabs/zeep-notti-cli) (`@notti/cli`), and register the printed public key in the Notti dashboard.
+**2. Create a signing key** with the [Notti CLI](https://github.com/zeeplabs/zeep-notti-cli) (`notti-cli`), and register the printed public key in the Notti dashboard.
 
 ```sh
-npm install --save-dev @notti/cli
+npm install --save-dev notti-cli
 npx notti ota keys generate --out notti-live-updates.private.pem
 ```
 

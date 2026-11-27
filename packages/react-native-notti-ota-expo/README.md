@@ -54,7 +54,7 @@ Publish releases with the [Notti CLI](https://github.com/zeeplabs/zeep-notti-cli
 ## Related
 
 - [`react-native-notti-ota`](https://www.npmjs.com/package/react-native-notti-ota): the native core and the config plugin.
-- [Notti CLI](https://github.com/zeeplabs/zeep-notti-cli) (`@notti/cli`).
+- [Notti CLI](https://github.com/zeeplabs/zeep-notti-cli) (`notti-cli`).
 - [`react-native-notti`](https://github.com/zeeplabs/zeep-notti-react-native): Notti push SDK, independent of Live updates.
 
 ## Contributing
